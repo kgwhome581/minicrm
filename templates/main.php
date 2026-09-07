@@ -26,13 +26,13 @@ declare(strict_types=1);
             <div class="minicrm-client-header">
                 <div class="client-title-row">
                     <h1 id="detail-client-name">ФИО Клиента</h1>
-                    <button id="btn-edit-client-name" class="btn-icon" title="Редактировать имя">✏️</button>
+                    <button type="button" id="btn-edit-client-name" class="btn-icon" title="Редактировать имя" onclick="openClientNameEditor()">✏️</button>
                     <span id="detail-client-id-badge" class="badge">ID: #0</span>
                 </div>
-                <div id="client-name-edit-box" class="name-edit-box" style="display: none;">
-                    <input type="text" id="input-edit-client-name" placeholder="Введите Фамилию и Имя" />
-                    <button id="btn-save-client-name" class="primary">Сохранить</button>
-                    <button id="btn-cancel-client-name">Отмена</button>
+                <div id="client-name-edit-box" class="name-edit-box" style="display: none; margin: 10px 0; gap: 8px;">
+                    <input type="text" id="input-edit-client-name" placeholder="Введите Фамилию и Имя" style="padding: 6px 12px; font-size: 15px; min-width: 260px;" onkeydown="if(event.key==='Enter')saveClientName();if(event.key==='Escape')closeClientNameEditor();" />
+                    <button type="button" id="btn-save-client-name" class="primary" onclick="saveClientName()">Сохранить</button>
+                    <button type="button" id="btn-cancel-client-name" onclick="closeClientNameEditor()">Отмена</button>
                 </div>
                 <div class="client-meta-row">
                     <div class="meta-item">
@@ -94,3 +94,69 @@ declare(strict_types=1);
         </div>
     </div>
 </div>
+
+<script>
+function openClientNameEditor() {
+    const nameEl = document.getElementById('detail-client-name');
+    const box = document.getElementById('client-name-edit-box');
+    const input = document.getElementById('input-edit-client-name');
+    if (!nameEl || !box || !input) return;
+
+    input.value = nameEl.textContent.trim();
+    box.style.display = 'flex';
+    input.focus();
+    input.select();
+}
+
+function closeClientNameEditor() {
+    const box = document.getElementById('client-name-edit-box');
+    if (box) box.style.display = 'none';
+}
+
+async function saveClientName() {
+    const input = document.getElementById('input-edit-client-name');
+    const nameEl = document.getElementById('detail-client-name');
+    const box = document.getElementById('client-name-edit-box');
+    const badge = document.getElementById('detail-client-id-badge');
+
+    const newName = input.value.trim();
+    if (!newName) {
+        alert('Имя не может быть пустым');
+        return;
+    }
+
+    const clientId = badge ? badge.textContent.replace(/[^0-9]/g, '') : null;
+    if (!clientId) {
+        alert('Клиент не выбран');
+        return;
+    }
+
+    try {
+        const url = OC.generateUrl('/apps/minicrm/api/v1/clients/' + clientId);
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'requesttoken': OC.requestToken
+            },
+            body: JSON.stringify({ full_name: newName })
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            nameEl.textContent = data.full_name;
+            box.style.display = 'none';
+
+            // Update item in sidebar
+            const activeItem = document.querySelector('.minicrm-client-item.active .client-item-name');
+            if (activeItem) {
+                activeItem.textContent = data.full_name;
+            }
+        } else {
+            alert('Не удалось сохранить изменения');
+        }
+    } catch (e) {
+        alert('Ошибка при сохранении: ' + e.message);
+    }
+}
+</script>

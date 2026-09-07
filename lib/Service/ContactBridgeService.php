@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 declare(strict_types=1);
 
@@ -125,9 +125,10 @@ class ContactBridgeService {
             $this->updateCardProperties($addressbookId, $cardId, $fullName, $phone, $email);
 
             // Update synctoken for live sync
+            $newSyncToken = ((int)($addressbook['synctoken'] ?? 0)) + 1;
             $syncQb = $this->db->getQueryBuilder();
             $syncQb->update('addressbooks')
-                ->set('synctoken', $syncQb->expr()->add('synctoken', 1))
+                ->set('synctoken', $syncQb->createNamedParameter($newSyncToken))
                 ->where($syncQb->expr()->eq('id', $syncQb->createNamedParameter($addressbookId)))
                 ->executeStatement();
 

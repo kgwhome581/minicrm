@@ -47,10 +47,10 @@ class ApiController extends BaseApiController {
         private MessageMapper $messageMapper,
         private PhoneNormalizer $phoneNormalizer,
         private FolderService $folderService,
-        private ContactBridgeService $contactBridge,
         private IConfig $config,
         private IUserSession $userSession,
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private ?ContactBridgeService $contactBridge = null
     ) {
         parent::__construct($appName, $request);
     }
@@ -256,18 +256,20 @@ class ApiController extends BaseApiController {
             $saved = $this->clientMapper->update($client);
 
             // Sync updated contact into Nextcloud Contacts
-            try {
-                $activities = $this->activityMapper->findByClientId($id);
-                $responsibleUser = (!empty($activities) && !empty($activities[0]->getResponsibleUser()))
-                    ? $activities[0]->getResponsibleUser()
-                    : 'admin';
-                $this->contactBridge->syncContact(
-                    $responsibleUser,
-                    $saved,
-                    $saved->getFolderPath() ? '/apps/files/?dir=' . urlencode($saved->getFolderPath()) : null
-                );
-            } catch (\Exception $e) {
-                $this->logger->debug('Contact sync during client update: ' . $e->getMessage(), ['app' => 'minicrm']);
+            if ($this->contactBridge !== null) {
+                try {
+                    $activities = $this->activityMapper->findByClientId($id);
+                    $responsibleUser = (!empty($activities) && !empty($activities[0]->getResponsibleUser()))
+                        ? $activities[0]->getResponsibleUser()
+                        : 'admin';
+                    $this->contactBridge->syncContact(
+                        $responsibleUser,
+                        $saved,
+                        $saved->getFolderPath() ? '/apps/files/?dir=' . urlencode($saved->getFolderPath()) : null
+                    );
+                } catch (\Exception $e) {
+                    $this->logger->debug('Contact sync during client update: ' . $e->getMessage(), ['app' => 'minicrm']);
+                }
             }
 
             return new DataResponse($saved->jsonSerialize(), Http::STATUS_OK);
@@ -286,6 +288,10 @@ class ApiController extends BaseApiController {
     public function syncContact(int $id): DataResponse {
         if (!$this->isAuthorized()) {
             return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        if ($this->contactBridge === null) {
+            return new DataResponse(['error' => 'Contact service is not available'], Http::STATUS_SERVICE_UNAVAILABLE);
         }
 
         try {
@@ -322,7 +328,9 @@ class ApiController extends BaseApiController {
             $client = $this->clientMapper->find($id);
             $activities = $this->activityMapper->findByClientId($id);
             $identities = $this->identityMapper->findByClientId($id);
-            $contactCard = $this->contactBridge->getContactInfo($client->getUuid());
+            $contactCard = $this->contactBridge
+                ? $this->contactBridge->getContactInfo($client->getUuid())
+                : ['exists' => false, 'app_url' => null];
 
             return new DataResponse([
                 'client' => $client->jsonSerialize(),

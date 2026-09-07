@@ -6,15 +6,18 @@
 
     const apiBase = OC.generateUrl('/apps/minicrm/api/v1');
 
-    document.addEventListener('DOMContentLoaded', () => {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initApp);
+    } else {
         initApp();
-    });
+    }
 
     function initApp() {
         const searchInput = document.getElementById('client-search-input');
         const channelSelect = document.getElementById('reply-channel-select');
         const subjectInput = document.getElementById('reply-subject-input');
         const sendButton = document.getElementById('reply-send-button');
+        const editNameInput = document.getElementById('input-edit-client-name');
 
         if (searchInput) {
             searchInput.addEventListener('input', debounce((e) => {
@@ -34,71 +37,74 @@
             sendButton.addEventListener('click', handleSendMessage);
         }
 
-        // Client Name Editing
-        const editNameBtn = document.getElementById('btn-edit-client-name');
-        const saveNameBtn = document.getElementById('btn-save-client-name');
-        const cancelNameBtn = document.getElementById('btn-cancel-client-name');
-        const editNameBox = document.getElementById('client-name-edit-box');
-        const editNameInput = document.getElementById('input-edit-client-name');
-        const detailNameEl = document.getElementById('detail-client-name');
-
-        if (editNameBtn) {
-            editNameBtn.addEventListener('click', () => {
-                if (!currentClientId) return;
-                editNameInput.value = detailNameEl.textContent.trim();
-                editNameBox.style.display = 'flex';
-                editNameInput.focus();
-            });
-        }
-
-        if (cancelNameBtn) {
-            cancelNameBtn.addEventListener('click', () => {
-                editNameBox.style.display = 'none';
-            });
-        }
-
-        if (saveNameBtn) {
-            saveNameBtn.addEventListener('click', handleSaveClientName);
-        }
-
         if (editNameInput) {
             editNameInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') handleSaveClientName();
-                if (e.key === 'Escape') editNameBox.style.display = 'none';
+                if (e.key === 'Escape') closeClientNameEditor();
             });
         }
 
-        // Tab buttons: Contact, Files, Actions
-        const tabBtnContact = document.getElementById('tab-btn-contact');
-        if (tabBtnContact) {
-            tabBtnContact.addEventListener('click', () => toggleHeaderTab('contact'));
-        }
+        // Global click listener with event delegation - ensures 100% reliable button clicks
+        document.addEventListener('click', (e) => {
+            // 1. Tab buttons (Contact, Files, Actions)
+            const tabBtn = e.target.closest('.header-tab-btn');
+            if (tabBtn) {
+                e.preventDefault();
+                const tabId = tabBtn.id;
+                if (tabId === 'tab-btn-contact') toggleHeaderTab('contact');
+                else if (tabId === 'tab-btn-files') toggleHeaderTab('files');
+                else if (tabId === 'tab-btn-actions') toggleHeaderTab('actions');
+                return;
+            }
 
-        const tabBtnFiles = document.getElementById('tab-btn-files');
-        if (tabBtnFiles) {
-            tabBtnFiles.addEventListener('click', () => toggleHeaderTab('files'));
-        }
+            // 2. Client Name Edit button
+            const editBtn = e.target.closest('#btn-edit-client-name');
+            if (editBtn) {
+                e.preventDefault();
+                openClientNameEditor();
+                return;
+            }
 
-        const tabBtnActions = document.getElementById('tab-btn-actions');
-        if (tabBtnActions) {
-            tabBtnActions.addEventListener('click', () => toggleHeaderTab('actions'));
-        }
+            // 3. Client Name Save button
+            const saveBtn = e.target.closest('#btn-save-client-name');
+            if (saveBtn) {
+                e.preventDefault();
+                handleSaveClientName();
+                return;
+            }
 
-        // Copy buttons
-        const copyPhoneBtn = document.getElementById('btn-copy-phone');
-        if (copyPhoneBtn) {
-            copyPhoneBtn.addEventListener('click', (e) => copyText('detail-client-phone', e.currentTarget));
-        }
+            // 4. Client Name Cancel button
+            const cancelBtn = e.target.closest('#btn-cancel-client-name');
+            if (cancelBtn) {
+                e.preventDefault();
+                closeClientNameEditor();
+                return;
+            }
 
-        const copyEmailBtn = document.getElementById('btn-copy-email');
-        if (copyEmailBtn) {
-            copyEmailBtn.addEventListener('click', (e) => copyText('detail-client-email', e.currentTarget));
-        }
+            // 5. Copy Phone button
+            const copyPhoneBtn = e.target.closest('#btn-copy-phone');
+            if (copyPhoneBtn) {
+                e.preventDefault();
+                copyText('detail-client-phone', copyPhoneBtn);
+                return;
+            }
 
-        const copyFiledropBtn = document.getElementById('btn-copy-filedrop');
-        if (copyFiledropBtn) {
-            copyFiledropBtn.addEventListener('click', (e) => copyFileDropLink(e.currentTarget));
-        }
+            // 6. Copy Email button
+            const copyEmailBtn = e.target.closest('#btn-copy-email');
+            if (copyEmailBtn) {
+                e.preventDefault();
+                copyText('detail-client-email', copyEmailBtn);
+                return;
+            }
+
+            // 7. Copy FileDrop button
+            const copyFiledropBtn = e.target.closest('#btn-copy-filedrop');
+            if (copyFiledropBtn) {
+                e.preventDefault();
+                copyFileDropLink(copyFiledropBtn);
+                return;
+            }
+        });
 
         loadClients();
     }
@@ -244,6 +250,9 @@
                 }
             }
         }
+
+        // Auto-open Contact tab if none open, or keep active tab open
+        toggleHeaderTab(currentActiveTab || 'contact', true);
     }
 
     function renderTimeline(messages) {
@@ -386,7 +395,7 @@
 
     let currentActiveTab = null;
 
-    function toggleHeaderTab(tabName) {
+    function toggleHeaderTab(tabName, forceOpen = false) {
         const panel = document.getElementById('header-tab-panel');
         const panelContact = document.getElementById('panel-contact');
         const panelFiles = document.getElementById('panel-files');
@@ -396,12 +405,14 @@
         const btnFiles = document.getElementById('tab-btn-files');
         const btnActions = document.getElementById('tab-btn-actions');
 
+        if (!panel) return;
+
         const allButtons = [btnContact, btnFiles, btnActions];
         const allPanels = { contact: panelContact, files: panelFiles, actions: panelActions };
 
-        // If clicking on already open tab -> toggle collapse
-        if (currentActiveTab === tabName) {
-            if (panel) panel.style.display = 'none';
+        // If clicking on already open tab without forceOpen -> toggle collapse
+        if (!forceOpen && currentActiveTab === tabName && panel.style.display !== 'none') {
+            panel.style.display = 'none';
             allButtons.forEach(b => b && b.classList.remove('active'));
             currentActiveTab = null;
             return;
@@ -409,7 +420,7 @@
 
         // Open requested tab
         currentActiveTab = tabName;
-        if (panel) panel.style.display = 'block';
+        panel.style.display = 'block';
 
         allButtons.forEach(b => b && b.classList.remove('active'));
         Object.values(allPanels).forEach(p => { if (p) p.style.display = 'none'; });
@@ -424,6 +435,23 @@
             if (btnActions) btnActions.classList.add('active');
             if (panelActions) panelActions.style.display = 'block';
         }
+    }
+
+    function openClientNameEditor() {
+        if (!currentClientId) return;
+        const nameEl = document.getElementById('detail-client-name');
+        const box = document.getElementById('client-name-edit-box');
+        const input = document.getElementById('input-edit-client-name');
+        if (!nameEl || !box || !input) return;
+        input.value = nameEl.textContent.trim();
+        box.style.display = 'flex';
+        input.focus();
+        input.select();
+    }
+
+    function closeClientNameEditor() {
+        const box = document.getElementById('client-name-edit-box');
+        if (box) box.style.display = 'none';
     }
 
     function copyText(elementId, btnEl) {
@@ -471,19 +499,7 @@
     window.toggleHeaderTab = toggleHeaderTab;
     window.copyText = copyText;
     window.copyFileDropLink = copyFileDropLink;
-    window.openClientNameEditor = () => {
-        const nameEl = document.getElementById('detail-client-name');
-        const box = document.getElementById('client-name-edit-box');
-        const input = document.getElementById('input-edit-client-name');
-        if (!nameEl || !box || !input) return;
-        input.value = nameEl.textContent.trim();
-        box.style.display = 'flex';
-        input.focus();
-        input.select();
-    };
-    window.closeClientNameEditor = () => {
-        const box = document.getElementById('client-name-edit-box');
-        if (box) box.style.display = 'none';
-    };
+    window.openClientNameEditor = openClientNameEditor;
+    window.closeClientNameEditor = closeClientNameEditor;
     window.saveClientName = handleSaveClientName;
 })();

@@ -112,10 +112,19 @@ class ApiController extends BaseApiController {
         }
 
         $params = $this->request->getParams();
+        if (empty($params) || (!isset($params['customer_first_name']) && !isset($params['client_name']) && !isset($params['customer_phone']) && !isset($params['phone']))) {
+            $rawBody = file_get_contents('php://input');
+            if (!empty($rawBody)) {
+                $decoded = json_decode($rawBody, true);
+                if (is_array($decoded)) {
+                    $params = array_merge($params, $decoded);
+                }
+            }
+        }
         try {
             $result = $this->ingestionService->ingestLead($params);
             return new DataResponse($result, Http::STATUS_CREATED);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return new DataResponse([
                 'error' => $e->getMessage(),
                 'status' => 'error',
@@ -333,9 +342,10 @@ class ApiController extends BaseApiController {
                     $client->getUuid(),
                     $client->getEmail(),
                     $client->getPhone(),
-                    $client->getFullName()
+                    $client->getFullName(),
+                    $client->getNotes()
                 )
-                : ['exists' => false, 'app_url' => null];
+                : ['exists' => false, 'app_url' => null, 'address' => null];
 
             return new DataResponse([
                 'client' => $client->jsonSerialize(),

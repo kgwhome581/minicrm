@@ -27,7 +27,8 @@ class ContactBridgeService {
     public function syncContact(
         string $responsibleUser,
         Client $client,
-        ?string $folderUrl = null
+        ?string $folderUrl = null,
+        array $extra = []
     ): ?array {
         try {
             $addressbook = $this->getUserAddressBook($responsibleUser);
@@ -55,6 +56,26 @@ class ContactBridgeService {
             $notes = $client->getNotes() ?: '';
             $website = $folderUrl ?: '';
 
+            // Address parts from extra or notes
+            $street = trim((string)($extra['street'] ?? ''));
+            $city = trim((string)($extra['city'] ?? ''));
+            $state = trim((string)($extra['state'] ?? ''));
+            $postalCode = trim((string)($extra['postal_code'] ?? ''));
+            $country = trim((string)($extra['country'] ?? 'Canada'));
+            $pobox = trim((string)($extra['po_box'] ?? ''));
+
+            if (empty($street) && empty($city) && !empty($notes)) {
+                if (preg_match('/Адрес:\s*(.*)$/mi', $notes, $addrMatch)) {
+                    $rawAddr = trim($addrMatch[1]);
+                    $addrParts = array_map('trim', explode(',', $rawAddr));
+                    if (count($addrParts) >= 1) $street = $addrParts[0];
+                    if (count($addrParts) >= 2) $city = $addrParts[1];
+                    if (count($addrParts) >= 3) $state = $addrParts[2];
+                    if (count($addrParts) >= 4) $postalCode = $addrParts[3];
+                    if (count($addrParts) >= 5) $country = $addrParts[4];
+                }
+            }
+
             $nowUtc = (new DateTime('now', new DateTimeZone('UTC')))->format('Ymd\THis\Z');
 
             // Build standard RFC 6350 vCard 3.0
@@ -70,6 +91,10 @@ class ContactBridgeService {
             }
             if (!empty($email)) {
                 $vcard .= "EMAIL;TYPE=OTHER:{$this->escapeVcardString($email)}\r\n";
+            }
+            if (!empty($street) || !empty($city) || !empty($postalCode)) {
+                $cCountry = !empty($country) ? $country : 'Canada';
+                $vcard .= "ADR;TYPE=HOME:{$this->escapeVcardString($pobox)};;{$this->escapeVcardString($street)};{$this->escapeVcardString($city)};{$this->escapeVcardString($state)};{$this->escapeVcardString($postalCode)};{$this->escapeVcardString($cCountry)}\r\n";
             }
             if (!empty($website)) {
                 $vcard .= "URL;TYPE=WORK:{$this->escapeVcardString($website)}\r\n";
@@ -122,7 +147,14 @@ class ContactBridgeService {
             }
 
             // Index search properties
-            $this->updateCardProperties($addressbookId, $cardId, $fullName, $phone, $email);
+            $this->updateCardProperties($addressbookId, $cardId, $fullName, $phone, $email, [
+                'street' => $street,
+                'city' => $city,
+                'state' => $state,
+                'postal_code' => $postalCode,
+                'country' => $country,
+                'po_box' => $pobox,
+            ]);
 
             // Update synctoken for live sync
             $newSyncToken = ((int)($addressbook['synctoken'] ?? 0)) + 1;
@@ -156,8 +188,16 @@ class ContactBridgeService {
         string $clientUuid,
         ?string $email = null,
         ?string $phone = null,
-        ?string $fullName = null
+        ?string $fullName = null,
+        ?string $fallbackNotes = null
     ): array {
+        $fallbackAddress = null;
+        if (!empty($fallbackNotes)) {
+            if (preg_match('/(?:Адрес|Address):\s*([^\r\n]+)/iu', $fallbackNotes, $m)) {
+                $fallbackAddress = trim($m[1]);
+            }
+        }
+
         try {
             $card = null;
 
@@ -203,10 +243,10 @@ class ContactBridgeService {
                 return [
                     'exists' => true,
                     'app_url' => '/apps/contacts/All%20contacts/' . $encodedUri,
-                    'address' => $parsed['address'] ?? null,
-                    'email' => $parsed['email'] ?? $email,
-                    'phone' => $parsed['phone'] ?? $phone,
-                    'notes' => $parsed['notes'] ?? null,
+                    'address' => $parsed['address'] ?: $fallbackAddress,
+                    'email' => $parsed['email'] ?: $email,
+                    'phone' => $parsed['phone'] ?: $phone,
+                    'notes' => $parsed['notes'] ?: $fallbackNotes,
                 ];
             }
         } catch (\Throwable $e) {
@@ -216,10 +256,10 @@ class ContactBridgeService {
         return [
             'exists' => false,
             'app_url' => null,
-            'address' => null,
+            'address' => $fallbackAddress,
             'email' => $email,
             'phone' => $phone,
-            'notes' => null,
+            'notes' => $fallbackNotes,
         ];
     }
 
@@ -394,7 +434,14 @@ class ContactBridgeService {
         return ($row2 !== false && isset($row2['id'])) ? $row2 : null;
     }
 
-    private function updateCardProperties(int $addressbookId, int $cardId, string $fullName, string $phone, string $email): void {
+    private function updateCardProperties(
+        int $addressbookId,
+        int $cardId,
+        string $fullName,
+        string $phone,
+        string $email,
+        array $address = []
+    ): void {
         try {
             $delQb = $this->db->getQueryBuilder();
             $delQb->delete('cards_properties')
@@ -411,6 +458,16 @@ class ContactBridgeService {
             if (!empty($email)) {
                 $props[] = ['EMAIL', $email];
             }
+            if (!empty($address['street']) || !empty($address['city']) || !empty($address['postal_code'])) {
+                $pobox = $address['po_box'] ?? '';
+                $street = $address['street'] ?? '';
+                $city = $address['city'] ?? '';
+                $state = $address['state'] ?? '';
+                $postalCode = $address['postal_code'] ?? '';
+                $country = $address['country'] ?? 'Canada';
+                $adrValue = "{$pobox};;{$street};{$city};{$state};{$postalCode};{$country}";
+                $props[] = ['ADR', $adrValue];
+            }
 
             foreach ($props as [$name, $val]) {
                 $ins = $this->db->getQueryBuilder();
@@ -424,7 +481,7 @@ class ContactBridgeService {
                     ])
                     ->executeStatement();
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->debug('Card properties indexing skipped: ' . $e->getMessage(), ['app' => 'minicrm']);
         }
     }

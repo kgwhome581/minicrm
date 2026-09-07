@@ -54,15 +54,86 @@ class IngestionService {
         $this->db->beginTransaction();
 
         try {
-            $clientName = trim($data['client_name'] ?? 'Новый клиент');
-            $rawPhone = $data['phone'] ?? null;
-            $phoneNormalized = $this->phoneNormalizer->normalize($rawPhone);
-            $email = !empty($data['email']) ? strtolower(trim((string)$data['email'])) : null;
+            // 1. Client Name mapping (support Easy!Appointments customer_first_name + customer_last_name)
+            $firstName = trim((string)($data['customer_first_name'] ?? $data['first_name'] ?? ''));
+            $lastName = trim((string)($data['customer_last_name'] ?? $data['last_name'] ?? ''));
+            $nameFromParts = trim($firstName . ' ' . $lastName);
+
+            $clientName = trim((string)($data['client_name'] ?? ''));
+            if (empty($clientName) && !empty($nameFromParts)) {
+                $clientName = $nameFromParts;
+            }
+            if (empty($clientName)) {
+                $clientName = 'Новый клиент';
+            }
+
+            // 2. Phone mapping (support customer_phone)
+            $rawPhone = $data['phone'] ?? $data['customer_phone'] ?? $data['customer_phone_number'] ?? null;
+            $phoneNormalized = $this->phoneNormalizer->normalize($rawPhone ? (string)$rawPhone : null);
+
+            // 3. Email mapping (support customer_email)
+            $rawEmail = $data['email'] ?? $data['customer_email'] ?? null;
+            $email = !empty($rawEmail) ? strtolower(trim((string)$rawEmail)) : null;
+
+            // 4. Address mapping (support customer_address, customer_city, customer_zip_code)
+            $street = trim((string)($data['customer_address'] ?? $data['address'] ?? $data['street'] ?? ''));
+            $city = trim((string)($data['customer_city'] ?? $data['city'] ?? ''));
+            $postalCode = trim((string)($data['customer_zip_code'] ?? $data['customer_zip'] ?? $data['postal_code'] ?? $data['zip'] ?? ''));
+            $state = trim((string)($data['customer_state'] ?? $data['state'] ?? ''));
+            if (empty($state) && !empty($postalCode) && strtoupper($postalCode[0]) === 'T') {
+                $state = 'AB'; // Alberta default for postal codes starting with T
+            }
+            $country = trim((string)($data['customer_country'] ?? $data['country'] ?? 'Canada'));
+
+            $addressArray = [
+                'street' => $street,
+                'city' => $city,
+                'state' => $state,
+                'postal_code' => $postalCode,
+                'country' => $country,
+            ];
+
+            $addrDisplayParts = array_filter([$street, $city, $state, $postalCode, $country]);
+            $formattedAddress = implode(', ', $addrDisplayParts);
+
+            // 5. Notes, Service & Appointment Metadata
+            $rawNotes = trim((string)($data['notes'] ?? ''));
+            $aptNotes = trim((string)($data['appointment_notes'] ?? ''));
+            $custNotes = trim((string)($data['customer_notes'] ?? ''));
+            $serviceName = trim((string)($data['service_name'] ?? ''));
+            $servicePrice = trim((string)($data['service_price'] ?? ''));
+            $appointmentId = $data['appointment_id'] ?? null;
+
+            $notesList = [];
+            if (!empty($rawNotes)) {
+                $notesList[] = $rawNotes;
+            }
+            if (!empty($aptNotes)) {
+                $notesList[] = "Заметки встречи: " . $aptNotes;
+            }
+            if (!empty($custNotes)) {
+                $notesList[] = "Заметки клиента: " . $custNotes;
+            }
+            if (!empty($serviceName)) {
+                $srvText = "Услуга: " . $serviceName;
+                if (!empty($servicePrice)) {
+                    $srvText .= " ($" . $servicePrice . ")";
+                }
+                $notesList[] = $srvText;
+            }
+            if (!empty($formattedAddress)) {
+                $notesList[] = "Адрес: " . $formattedAddress;
+            }
+            if (!empty($appointmentId)) {
+                $notesList[] = "Appointment ID: #" . $appointmentId;
+            }
+            $notes = implode("\n", $notesList);
+
+            // 6. Responsible specialist & Source
             $responsibleUser = $data['responsible_specialist'] ?? 'admin';
             $source = $data['source'] ?? 'easypoint';
-            $notes = $data['notes'] ?? '';
 
-            // 1. Resolve or Create Client
+            // 7. Resolve or Create Client
             $isNewClient = false;
             $client = $this->clientMapper->findByPhoneOrEmail($phoneNormalized, $email);
 
@@ -72,28 +143,43 @@ class IngestionService {
                 $client->setUuid($this->generateUuid());
                 $client->setFullName($clientName);
                 $client->setPhone($phoneNormalized);
-                $client->setPhoneRaw($rawPhone);
+                $client->setPhoneRaw($rawPhone ? (string)$rawPhone : null);
                 $client->setEmail($email);
                 $client->setNotes($notes);
                 $client->setCreatedAt(new DateTime('now'));
                 $client->setUpdatedAt(new DateTime('now'));
                 $client = $this->clientMapper->insert($client);
             } else {
-                // Update client info if updated
+                // If existing client had dummy/default name ("Новый клиент") and now we have real name
+                if ($client->getFullName() === 'Новый клиент' && $clientName !== 'Новый клиент') {
+                    $client->setFullName($clientName);
+                }
                 if (empty($client->getEmail()) && !empty($email)) {
                     $client->setEmail($email);
                 }
                 if (empty($client->getPhone()) && !empty($phoneNormalized)) {
                     $client->setPhone($phoneNormalized);
                 }
+                if (empty($client->getPhoneRaw()) && !empty($rawPhone)) {
+                    $client->setPhoneRaw((string)$rawPhone);
+                }
+                // Append notes if new address/notes present
+                if (!empty($notes)) {
+                    $existingNotes = $client->getNotes() ?: '';
+                    if (!empty($formattedAddress) && strpos($existingNotes, $formattedAddress) === false) {
+                        $client->setNotes(trim($existingNotes . "\n\n" . $notes));
+                    } elseif (empty($existingNotes)) {
+                        $client->setNotes($notes);
+                    }
+                }
                 $client->setUpdatedAt(new DateTime('now'));
                 $client = $this->clientMapper->update($client);
             }
 
-            // 2. Prepare Activity
+            // 8. Prepare Activity
             $activityUuid = $this->generateUuid();
 
-            // 3. Setup Folders and Public File Drop Link
+            // 9. Setup Folders and Public File Drop Link
             $folderInfo = $this->folderService->setupClientAndActivityFolder(
                 $client->getFullName(),
                 $client->getUuid(),
@@ -107,9 +193,9 @@ class IngestionService {
                 $this->clientMapper->update($client);
             }
 
-            // 4. Parse Meeting Date/Time (Timezone America/Edmonton)
+            // 10. Parse Meeting Date/Time (support meeting_datetime and start_datetime)
             $meetingDateTime = null;
-            $meetingStr = $data['meeting_datetime'] ?? null;
+            $meetingStr = $data['meeting_datetime'] ?? $data['start_datetime'] ?? null;
             if (!empty($meetingStr)) {
                 $tzString = $data['meeting_timezone'] ?? 'America/Edmonton';
                 try {
@@ -120,37 +206,43 @@ class IngestionService {
                 }
             }
 
-            // 5. Calendar Event Booking
+            // 11. Calendar Event Booking
             $calendarEventId = null;
             if ($meetingDateTime !== null) {
                 $eventTitle = sprintf('Встреча: %s (%s)', $client->getFullName(), $client->getPhone());
                 $eventDesc = sprintf(
-                    "Клиент: %s\nТелефон: %s\nEmail: %s\nПапка клиента: %s\nСсылка для загрузки (FileDrop): %s\nЗаметки: %s",
+                    "Клиент: %s\nТелефон: %s\nEmail: %s\nАдрес: %s\nУслуга: %s\nПапка клиента: %s\nСсылка для загрузки (FileDrop): %s\n\nЗаметки:\n%s",
                     $client->getFullName(),
                     $client->getPhone(),
                     $client->getEmail() ?? '—',
+                    $formattedAddress ?: '—',
+                    $serviceName ?: '—',
                     $folderInfo['activity_folder_path'],
                     $folderInfo['file_drop_url'],
                     $notes
                 );
 
+                $durationMinutes = isset($data['service_duration']) ? (int)$data['service_duration'] : 60;
+
                 $calendarEventId = $this->calendarBridge->createEvent(
                     $responsibleUser,
                     $eventTitle,
                     $meetingDateTime,
-                    60, // 1 hour duration
+                    $durationMinutes,
                     $eventDesc
                 );
             }
 
-            // 6. Nextcloud Deck Task Creation
+            // 12. Nextcloud Deck Task Creation
             $deckTaskId = null;
-            $cardTitle = sprintf('%s - %s', $client->getFullName(), $source);
+            $cardTitle = sprintf('%s - %s', $client->getFullName(), !empty($serviceName) ? $serviceName : strtoupper($source));
             $cardDesc = sprintf(
                 "## Заявка из %s\n\n" .
                 "- **Клиент:** %s\n" .
                 "- **Телефон:** %s\n" .
                 "- **Email:** %s\n" .
+                "- **Адрес:** %s\n" .
+                "- **Услуга:** %s\n" .
                 "- **Дата встречи:** %s\n" .
                 "- **Папка документов:** `%s`\n" .
                 "- **Ссылка клиенту (FileDrop):** [Загрузка файлов](%s)\n\n" .
@@ -159,6 +251,8 @@ class IngestionService {
                 $client->getFullName(),
                 $client->getPhone(),
                 $client->getEmail() ?? '—',
+                $formattedAddress ?: '—',
+                $serviceName ? ($serviceName . (!empty($servicePrice) ? " ($" . $servicePrice . ")" : "")) : '—',
                 $meetingDateTime ? $meetingDateTime->format('Y-m-d H:i (T)') : 'Не назначена',
                 $folderInfo['activity_folder_path'],
                 $folderInfo['file_drop_url'],
@@ -177,19 +271,20 @@ class IngestionService {
                 $stackId
             );
 
-            // 6b. Sync Contact into Nextcloud Contacts module
+            // 13. Sync Contact into Nextcloud Contacts module WITH ADDRESS
             $contactInfo = null;
             try {
                 $contactInfo = $this->contactBridge->syncContact(
                     $responsibleUser,
                     $client,
-                    $folderInfo['folder_path'] ?? null
+                    $folderInfo['folder_path'] ?? null,
+                    $addressArray
                 );
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 $this->logger->error('Error syncing contact to Nextcloud Contacts: ' . $e->getMessage(), ['app' => 'minicrm']);
             }
 
-            // 7. Save Activity Record
+            // 14. Save Activity Record
             $activity = new Activity();
             $activity->setActivityUuid($activityUuid);
             $activity->setClientId((int)$client->getId());
@@ -228,11 +323,12 @@ class IngestionService {
             $sysMsg->setChannel('system');
             $sysMsg->setDirection('inbound');
             $sysMsg->setSenderRecipient($source);
-            $sysMsg->setSubject('Новая встреча забронирована');
+            $sysMsg->setSubject('Новая встреча забронирована: ' . ($serviceName ?: 'Консультация'));
             $sysMsg->setContent(sprintf(
-                "Встреча назначена на %s. Созданы карточка Deck #%s и папка для документов.",
+                "Встреча назначена на %s. Созданы карточка Deck #%s, папка для документов и контакт в Nextcloud Contacts.%s",
                 $meetingDateTime ? $meetingDateTime->format('Y-m-d H:i') : 'уточняется',
-                $deckTaskId ?? '—'
+                $deckTaskId ?? '—',
+                !empty($formattedAddress) ? "\nАдрес: " . $formattedAddress : ""
             ));
             $sysMsg->setCreatedAt(new DateTime('now'));
             $this->messageMapper->insert($sysMsg);
@@ -250,7 +346,7 @@ class IngestionService {
                 'calendar_event_id' => $calendarEventId,
                 'contact' => $contactInfo,
             ];
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->db->rollBack();
             $this->logger->error('Failed to ingest lead: ' . $e->getMessage(), [
                 'app' => 'minicrm',

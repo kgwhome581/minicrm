@@ -45,6 +45,14 @@
             });
         }
 
+        // Move modals to document.body so no parent container clipping/overflow affects them
+        ['modal-contact', 'modal-actions'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.parentNode !== document.body) {
+                document.body.appendChild(el);
+            }
+        });
+
         // Global keydown listener for Escape
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -536,8 +544,12 @@
             emailEl.href = email ? `mailto:${email}` : '#';
         }
 
-        const address = contactCard.address || 'Адрес не указан';
-        if (addrEl) addrEl.textContent = address;
+        let address = contactCard.address;
+        if (!address && client.notes) {
+            const m = client.notes.match(/(?:Адрес|Address):\s*([^\r\n]+)/i);
+            if (m) address = m[1].trim();
+        }
+        if (addrEl) addrEl.textContent = address || 'Адрес не указан';
 
         const notes = client.notes || contactCard.notes || 'Нет заметок';
         if (notesEl) notesEl.textContent = notes;
@@ -584,8 +596,12 @@
         }
 
         const client = currentClientData.client;
-        if (client.folder_path) {
-            const folderUrl = OC.generateUrl(`/apps/files/?dir=${encodeURIComponent(client.folder_path)}`);
+        let folderPath = client.folder_path;
+        if (!folderPath && client.full_name) {
+            folderPath = `/Clients/${client.full_name}`;
+        }
+        if (folderPath) {
+            const folderUrl = OC.generateUrl(`/apps/files/?dir=${encodeURIComponent(folderPath)}`);
             window.open(folderUrl, '_blank');
         } else {
             if (typeof OC.dialogs !== 'undefined' && OC.dialogs.info) {

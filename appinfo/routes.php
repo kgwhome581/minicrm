@@ -9,6 +9,7 @@ return [
 
         // REST API Endpoints for n8n & external integrations
         ['name' => 'api#ingestLead', 'url' => '/api/v1/leads/ingest', 'verb' => 'POST'],
+        ['name' => 'api#findClient', 'url' => '/api/v1/clients/find', 'verb' => 'GET'],
         ['name' => 'api#findClient', 'url' => '/api/v1/clients/find', 'verb' => 'POST'],
         ['name' => 'api#createClient', 'url' => '/api/v1/clients', 'verb' => 'POST'],
         ['name' => 'api#updateClient', 'url' => '/api/v1/clients/{id}', 'verb' => 'POST'],

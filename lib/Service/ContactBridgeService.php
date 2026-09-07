@@ -76,6 +76,33 @@ class ContactBridgeService {
                 }
             }
 
+            $customerId = $extra['customer_id'] ?? null;
+            $crmId = $extra['customer_mini_crm_id'] ?? $client->getId();
+            $deckId = $extra['deck_task_id'] ?? null;
+
+            $metaLines = [];
+            if (!empty($customerId)) {
+                $metaLines[] = "ID EasyAppointments: #{$customerId}";
+            }
+            if (!empty($crmId)) {
+                $metaLines[] = "ID MiniCRM: #{$crmId}";
+            }
+            if (!empty($website)) {
+                $metaLines[] = "Папка файлов: {$website}";
+            }
+            if (!empty($deckId)) {
+                $metaLines[] = "Deck: /apps/deck/#/card/{$deckId}";
+            }
+
+            if (!empty($metaLines)) {
+                $headerBlock = implode("\n", $metaLines);
+                if (empty($notes)) {
+                    $notes = $headerBlock;
+                } else if (!str_contains($notes, 'ID MiniCRM')) {
+                    $notes = $headerBlock . "\n\n" . $notes;
+                }
+            }
+
             $nowUtc = (new DateTime('now', new DateTimeZone('UTC')))->format('Ymd\THis\Z');
 
             // Build standard RFC 6350 vCard 3.0
@@ -85,6 +112,13 @@ class ContactBridgeService {
                 "UID:{$contactUid}\r\n" .
                 "FN:{$this->escapeVcardString($fullName)}\r\n" .
                 "N:{$this->escapeVcardString($lastName)};{$this->escapeVcardString($firstName)};;;\r\n";
+
+            if (!empty($customerId)) {
+                $vcard .= "X-EASYAPPOINTMENTS-ID:{$customerId}\r\n";
+            }
+            if (!empty($crmId)) {
+                $vcard .= "X-MINICRM-ID:{$crmId}\r\n";
+            }
 
             if (!empty($phone)) {
                 $vcard .= "TEL;TYPE=CELL:{$this->escapeVcardString($phone)}\r\n";

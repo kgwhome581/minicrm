@@ -132,10 +132,24 @@ class IngestionService {
             // 6. Responsible specialist & Source
             $responsibleUser = $data['responsible_specialist'] ?? 'admin';
             $source = $data['source'] ?? 'easypoint';
+            $customerId = $data['customer_id'] ?? null;
 
-            // 7. Resolve or Create Client
+            // 7. Resolve or Create Client (Deduplication: customer_id identity -> phone -> email)
             $isNewClient = false;
-            $client = $this->clientMapper->findByPhoneOrEmail($phoneNormalized, $email);
+            $client = null;
+
+            if ($customerId !== null) {
+                $existingIdent = $this->identityMapper->findByChannelAndExternalId('easyappointments', (string)$customerId);
+                if ($existingIdent !== null) {
+                    try {
+                        $client = $this->clientMapper->find($existingIdent->getClientId());
+                    } catch (\Exception) {}
+                }
+            }
+
+            if ($client === null) {
+                $client = $this->clientMapper->findByPhoneOrEmail($phoneNormalized, $email);
+            }
 
             if ($client === null) {
                 $isNewClient = true;
@@ -176,15 +190,36 @@ class IngestionService {
                 $client = $this->clientMapper->update($client);
             }
 
+            // Save EasyAppointments identity if provided
+            if ($customerId !== null) {
+                $existingIdent = $this->identityMapper->findByChannelAndExternalId('easyappointments', (string)$customerId);
+                if ($existingIdent === null) {
+                    $ident = new Identity();
+                    $ident->setClientId((int)$client->getId());
+                    $ident->setChannel('easyappointments');
+                    $ident->setExternalId((string)$customerId);
+                    $ident->setCreatedAt(new DateTime('now'));
+                    $this->identityMapper->insert($ident);
+                }
+            }
+
             // 8. Prepare Activity
             $activityUuid = $this->generateUuid();
 
             // 9. Setup Folders and Public File Drop Link
+            $providerFirst = $data['provider_first_name'] ?? 'contact';
+            $safeCreateDt = str_replace([':', ' '], ['-', '_'], (string)($data['create_datetime'] ?? 'now'));
+            $customActivityFolder = ($appointmentId !== null)
+                ? sprintf('%s_%s_%s', $appointmentId, $providerFirst, $safeCreateDt)
+                : $activityUuid;
+
             $folderInfo = $this->folderService->setupClientAndActivityFolder(
                 $client->getFullName(),
                 $client->getUuid(),
                 $activityUuid,
-                $responsibleUser
+                $responsibleUser,
+                (int)$client->getId(),
+                $customActivityFolder
             );
 
             // Update client folder path if not set
@@ -274,6 +309,11 @@ class IngestionService {
             // 13. Sync Contact into Nextcloud Contacts module WITH ADDRESS
             $contactInfo = null;
             try {
+                $addressArray['customer_id'] = $customerId;
+                $addressArray['customer_mini_crm_id'] = $client->getId();
+                $addressArray['deck_task_id'] = $deckTaskId;
+                $addressArray['folder_path'] = $folderInfo['folder_path'] ?? null;
+
                 $contactInfo = $this->contactBridge->syncContact(
                     $responsibleUser,
                     $client,
@@ -299,7 +339,7 @@ class IngestionService {
             $activity->setUpdatedAt(new DateTime('now'));
             $activity = $this->activityMapper->insert($activity);
 
-            // 8. Optional: Save Identity (Telegram / WhatsApp / Facebook)
+            // 15. Optional: Save Identity (Telegram / WhatsApp / Facebook)
             if (!empty($data['channel_identity']) && is_array($data['channel_identity'])) {
                 $channel = $data['channel_identity']['channel'] ?? '';
                 $extId = $data['channel_identity']['external_id'] ?? '';
@@ -316,7 +356,7 @@ class IngestionService {
                 }
             }
 
-            // 9. Initial System Message in Timeline
+            // 16. Initial System Message in Timeline
             $sysMsg = new Message();
             $sysMsg->setClientId((int)$client->getId());
             $sysMsg->setActivityId((int)$activity->getId());
@@ -338,10 +378,13 @@ class IngestionService {
             return [
                 'status' => 'success',
                 'is_new_client' => $isNewClient,
+                'customer_mini_crm_id' => (int)$client->getId(),
                 'client' => $client->jsonSerialize(),
                 'activity' => $activity->jsonSerialize(),
-                'file_drop_url' => $folderInfo['file_drop_url'],
+                'customer_file_path' => $folderInfo['folder_path'],
                 'folder_path' => $folderInfo['activity_folder_path'],
+                'file_drop_url' => $folderInfo['file_drop_url'],
+                'customer_desk_id' => $deckTaskId ? '/apps/deck/#/card/' . $deckTaskId : null,
                 'deck_task_id' => $deckTaskId,
                 'calendar_event_id' => $calendarEventId,
                 'contact' => $contactInfo,

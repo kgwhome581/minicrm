@@ -1,0 +1,180 @@
+{
+  "name": "ViolaTax - EasyAppointments Intake to MiniCRM & Calendar",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "easyappointments-booking",
+        "options": {}
+      },
+      "name": "EasyAppointments Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Stage 1: Data Normalization\nconst item = $input.first().json;\n\n// 1. Email Normalization\nconst rawEmail = (item.customer_email || '').trim().toLowerCase();\n\n// 2. Phone Normalization (E.164 NANP)\nlet rawPhone = (item.customer_phone || '').replace(/[^\\d+]/g, '');\nlet cleanPhone = '';\nif (rawPhone.startsWith('+')) {\n  cleanPhone = rawPhone;\n} else if (rawPhone.length === 10) {\n  cleanPhone = '+1' + rawPhone;\n} else if (rawPhone.length === 11 && rawPhone.startsWith('1')) {\n  cleanPhone = '+' + rawPhone;\n} else {\n  cleanPhone = '+' + rawPhone;\n}\n\n// 3. Event and Subfolder Naming\nconst createDtSafe = (item.create_datetime || '').replace(/[: ]/g, '-');\nconst eventSubfolder = `${item.appointment_id}_${item.provider_first_name || 'contact'}_${createDtSafe}`;\n\nreturn {\n  json: {\n    ...item,\n    customer_email: rawEmail,\n    customer_phone_normalized: cleanPhone,\n    event_subfolder_name: eventSubfolder\n  }\n};"
+      },
+      "name": "Normalize Contact Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://office.violatax.ca/apps/minicrm/api/v1/clients/find",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "customer_id", "value": "={{ $json.customer_id }}" },
+            { "name": "customer_phone", "value": "={{ $json.customer_phone_normalized }}" },
+            { "name": "customer_email", "value": "={{ $json.customer_email }}" },
+            { "name": "token", "value": "SuperSecretToken2026" }
+          ]
+        },
+        "options": {
+          "neverError": true
+        }
+      },
+      "name": "MiniCRM Deduplication",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.found }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Client Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://office.violatax.ca/apps/minicrm/api/v1/leads/ingest?token=SuperSecretToken2026",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Normalize Contact Data').first().json }}"
+      },
+      "name": "Branch A: Create New Profile & Folders",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://office.violatax.ca/apps/minicrm/api/v1/leads/ingest?token=SuperSecretToken2026",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Normalize Contact Data').first().json }}"
+      },
+      "name": "Branch B: Update Profile & Add Activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 420]
+    },
+    {
+      "parameters": {
+        "fromEmail": "contact@violatax.ca",
+        "toEmail": "={{ $('Normalize Contact Data').first().json.customer_email }}",
+        "subject": "=Подтверждение бронирования: {{ $('Normalize Contact Data').first().json.service_name }} — {{ $('Normalize Contact Data').first().json.start_datetime }}",
+        "html": "=<h2>Здравствуйте, {{ $('Normalize Contact Data').first().json.customer_first_name }}!</h2><p>Ваша запись на услугу <strong>{{ $('Normalize Contact Data').first().json.service_name }}</strong> успешно подтверждена на <strong>{{ $('Normalize Contact Data').first().json.start_datetime }}</strong>.</p><p>Для предварительной отправки документов используйте вашу персональную безопасную ссылку:</p><p><a href=\"{{ $json.file_drop_url }}\" style=\"padding:10px 16px;background:#0082c9;color:#fff;text-decoration:none;border-radius:6px;\">Загрузить документы (FileDrop)</a></p><p>С уважением,<br>ViolaTax Team</p>"
+      },
+      "name": "Email 1: Instant Confirmation",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1360, 300]
+    },
+    {
+      "parameters": {
+        "amount": 24,
+        "unit": "hours"
+      },
+      "name": "Wait: 24h Before Meeting",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1580, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "contact@violatax.ca",
+        "toEmail": "={{ $('Normalize Contact Data').first().json.customer_email }}",
+        "subject": "=Напоминание о консультации завтра в {{ $('Normalize Contact Data').first().json.start_datetime }} — ViolaTax",
+        "html": "=<h2>Напоминание о встрече</h2><p>Уважаемый(ая) {{ $('Normalize Contact Data').first().json.customer_first_name }},</p><p>Напоминаем, что завтра состоится ваша консультация по адресу офиса в Lethbridge: Keystone Grove West.</p><p>Пожалуйста, не забудьте удостоверение личности и оригиналы форм T4/квитанций.</p>"
+      },
+      "name": "Email 2: 24h Reminder",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1800, 300]
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "hours"
+      },
+      "name": "Wait: 2h After Meeting",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2020, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "contact@violatax.ca",
+        "toEmail": "={{ $('Normalize Contact Data').first().json.customer_email }}",
+        "subject": "Благодарим за визит в ViolaTax! Оцените качество обслуживания",
+        "html": "=<h2>Спасибо, что выбрали ViolaTax!</h2><p>Надеемся, консультация была полезной и продуктивной.</p><p>Будем очень благодарны за ваш отзыв на Google:</p><p><a href=\"https://g.page/r/violatax/review\" style=\"padding:10px 16px;background:#28a745;color:#fff;text-decoration:none;border-radius:6px;\">Оставить отзыв на Google</a></p>"
+      },
+      "name": "Email 3: Follow-up & Review",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2240, 300]
+    }
+  ],
+  "connections": {
+    "EasyAppointments Webhook": {
+      "main": [[{ "node": "Normalize Contact Data", "type": "main", "index": 0 }]]
+    },
+    "Normalize Contact Data": {
+      "main": [[{ "node": "MiniCRM Deduplication", "type": "main", "index": 0 }]]
+    },
+    "MiniCRM Deduplication": {
+      "main": [[{ "node": "Client Exists?", "type": "main", "index": 0 }]]
+    },
+    "Client Exists?": {
+      "main": [
+        [{ "node": "Branch B: Update Profile & Add Activity", "type": "main", "index": 0 }],
+        [{ "node": "Branch A: Create New Profile & Folders", "type": "main", "index": 0 }]
+      ]
+    },
+    "Branch A: Create New Profile & Folders": {
+      "main": [[{ "node": "Email 1: Instant Confirmation", "type": "main", "index": 0 }]]
+    },
+    "Branch B: Update Profile & Add Activity": {
+      "main": [[{ "node": "Email 1: Instant Confirmation", "type": "main", "index": 0 }]]
+    },
+    "Email 1: Instant Confirmation": {
+      "main": [[{ "node": "Wait: 24h Before Meeting", "type": "main", "index": 0 }]]
+    },
+    "Wait: 24h Before Meeting": {
+      "main": [[{ "node": "Email 2: 24h Reminder", "type": "main", "index": 0 }]]
+    },
+    "Email 2: 24h Reminder": {
+      "main": [[{ "node": "Wait: 2h After Meeting", "type": "main", "index": 0 }]]
+    },
+    "Wait: 2h After Meeting": {
+      "main": [[{ "node": "Email 3: Follow-up & Review", "type": "main", "index": 0 }]]
+    }
+  }
+}

@@ -60,29 +60,41 @@ class FolderService {
         string $clientName,
         string $clientUuid,
         string $activityUuid,
-        ?string $responsibleUser = null
+        ?string $responsibleUser = null,
+        ?int $clientMiniCrmId = null,
+        ?string $customActivityFolder = null
     ): array {
         $owner = $this->getStorageUser($responsibleUser);
         $userFolder = $this->rootFolder->getUserFolder($owner);
 
+        $baseDir = $this->config->getAppValue('minicrm', 'base_folder', 'Users');
+
         $safeName = $this->phoneNormalizer->sanitizeName($clientName);
-        $clientFolderSegment = sprintf('%s_%s', $safeName, substr($clientUuid, 0, 8));
+        if ($clientMiniCrmId !== null && $clientMiniCrmId > 0) {
+            $clientFolderSegment = sprintf('%s - %d', $safeName, $clientMiniCrmId);
+        } else {
+            $clientFolderSegment = sprintf('%s_%s', $safeName, substr($clientUuid, 0, 8));
+        }
 
-        // 1. Base storage folder
-        $baseFolder = $this->ensureSubFolder($userFolder, self::BASE_DIR);
+        // 1. Base storage folder (e.g. Users)
+        $baseFolder = $this->ensureSubFolder($userFolder, $baseDir);
 
-        // 2. Client root folder
+        // 2. Client root folder (e.g. Ivan Petrov - 11)
         $clientFolder = $this->ensureSubFolder($baseFolder, $clientFolderSegment);
 
-        // 3. Activity folder (e.g. 2024_Tax_Return or activity UUID)
-        $activityFolder = $this->ensureSubFolder($clientFolder, $activityUuid);
+        // 3. Activity folder (e.g. 23_contact_2026-09-07_18-46-41 or activity UUID)
+        $activitySubName = !empty($customActivityFolder) ? $this->phoneNormalizer->sanitizeName($customActivityFolder) : $activityUuid;
+        $activityFolder = $this->ensureSubFolder($clientFolder, $activitySubName);
 
         // 4. Generate public File Drop share link for the activity folder
         $shareData = $this->createFileDropShare($activityFolder, $owner);
 
+        $folderPath = '/' . $baseDir . '/' . $clientFolderSegment;
+        $activityFolderPath = $folderPath . '/' . $activitySubName;
+
         return [
-            'folder_path' => '/' . self::BASE_DIR . '/' . $clientFolderSegment,
-            'activity_folder_path' => '/' . self::BASE_DIR . '/' . $clientFolderSegment . '/' . $activityUuid,
+            'folder_path' => $folderPath,
+            'activity_folder_path' => $activityFolderPath,
             'file_drop_url' => $shareData['url'],
             'share_token' => $shareData['token'],
         ];

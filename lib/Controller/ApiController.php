@@ -133,8 +133,8 @@ class ApiController extends BaseApiController {
     }
 
     /**
-     * POST /api/v1/clients/find
-     * Search client by phone or email.
+     * GET / POST /api/v1/clients/find
+     * Search client by phone, email, or external customer_id.
      *
      * @NoAdminRequired
      * @NoCSRFRequired
@@ -148,41 +148,65 @@ class ApiController extends BaseApiController {
             return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_UNAUTHORIZED);
         }
 
-        $phone = $this->request->getParam('phone');
-        $email = $this->request->getParam('email');
-        $channel = $this->request->getParam('channel');
-        $externalId = $this->request->getParam('external_id');
+        $phone = $this->request->getParam('phone') ?? $this->request->getParam('customer_phone');
+        $email = $this->request->getParam('email') ?? $this->request->getParam('customer_email');
+        $channel = $this->request->getParam('channel', 'easyappointments');
+        $externalId = $this->request->getParam('external_id') ?? $this->request->getParam('customer_id');
 
-        // 1. If channel and externalId provided (e.g. telegram chat_id)
-        if (!empty($channel) && !empty($externalId)) {
+        $client = null;
+        $matchedBy = null;
+
+        // 1. If externalId provided (e.g. easyappointments customer_id 11 or telegram chat_id)
+        if (!empty($externalId)) {
             $identity = $this->identityMapper->findByChannelAndExternalId((string)$channel, (string)$externalId);
             if ($identity !== null) {
                 try {
                     $client = $this->clientMapper->find($identity->getClientId());
-                    return new DataResponse([
-                        'found' => true,
-                        'client' => $client->jsonSerialize(),
-                        'matched_by' => 'identity',
-                    ]);
+                    $matchedBy = 'identity';
                 } catch (\Exception) {}
             }
         }
 
         // 2. Lookup by phone or email
-        $normalizedPhone = $this->phoneNormalizer->normalize($phone);
-        $client = $this->clientMapper->findByPhoneOrEmail($normalizedPhone, $email);
+        if ($client === null && (!empty($phone) || !empty($email))) {
+            $normalizedPhone = $this->phoneNormalizer->normalize($phone ? (string)$phone : null);
+            $cleanEmail = !empty($email) ? strtolower(trim((string)$email)) : null;
+            $client = $this->clientMapper->findByPhoneOrEmail($normalizedPhone, $cleanEmail);
+            if ($client !== null) {
+                $matchedBy = 'contact';
+            }
+        }
 
         if ($client !== null) {
+            $clientData = $client->jsonSerialize();
+            $clientData['customer_mini_crm_id'] = $client->getId();
+
+            $contactCard = $this->contactBridge
+                ? $this->contactBridge->getContactInfo(
+                    $client->getUuid(),
+                    $client->getEmail(),
+                    $client->getPhone(),
+                    $client->getFullName(),
+                    $client->getNotes()
+                )
+                : null;
+
             return new DataResponse([
                 'found' => true,
-                'client' => $client->jsonSerialize(),
-                'matched_by' => 'contact',
-            ]);
+                'customer_mini_crm_id' => $client->getId(),
+                'client' => $clientData,
+                'customer_file_path' => $client->getFolderPath(),
+                'contact_card' => $contactCard,
+                'matched_by' => $matchedBy,
+            ], Http::STATUS_OK);
         }
 
         return new DataResponse([
             'found' => false,
+            'customer_mini_crm_id' => null,
             'client' => null,
+            'customer_file_path' => null,
+            'contact_card' => null,
         ], Http::STATUS_NOT_FOUND);
     }
 

@@ -197,7 +197,7 @@
             const statusEl = document.getElementById('detail-activity-status');
             if (statusEl) statusEl.textContent = latestActivity.status;
 
-            const headerStatusEl = document.getElementById('detail-activity-status-header');
+            const headerStatusEl = document.getElementById('detail-activity-status-badge') || document.getElementById('detail-activity-status-header');
             if (headerStatusEl) headerStatusEl.textContent = latestActivity.status;
 
             const sourceEl = document.getElementById('detail-activity-source');

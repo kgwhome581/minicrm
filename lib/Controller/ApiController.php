@@ -329,7 +329,12 @@ class ApiController extends BaseApiController {
             $activities = $this->activityMapper->findByClientId($id);
             $identities = $this->identityMapper->findByClientId($id);
             $contactCard = $this->contactBridge
-                ? $this->contactBridge->getContactInfo($client->getUuid())
+                ? $this->contactBridge->getContactInfo(
+                    $client->getUuid(),
+                    $client->getEmail(),
+                    $client->getPhone(),
+                    $client->getFullName()
+                )
                 : ['exists' => false, 'app_url' => null];
 
             return new DataResponse([

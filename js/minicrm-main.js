@@ -2,6 +2,7 @@
     'use strict';
 
     let currentClientId = null;
+    let currentClientData = null;
     let clientsCache = [];
 
     const apiBase = OC.generateUrl('/apps/minicrm/api/v1');
@@ -44,20 +45,55 @@
             });
         }
 
+        // Global keydown listener for Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeAllModals();
+                closeClientNameEditor();
+            }
+        });
+
         // Global click listener with event delegation - ensures 100% reliable button clicks
         document.addEventListener('click', (e) => {
-            // 1. Tab buttons (Contact, Files, Actions)
-            const tabBtn = e.target.closest('.header-tab-btn');
-            if (tabBtn) {
+            // 1. Header action buttons (Contact, Files, Actions)
+            if (e.target.closest('#tab-btn-contact')) {
                 e.preventDefault();
-                const tabId = tabBtn.id;
-                if (tabId === 'tab-btn-contact') toggleHeaderTab('contact');
-                else if (tabId === 'tab-btn-files') toggleHeaderTab('files');
-                else if (tabId === 'tab-btn-actions') toggleHeaderTab('actions');
+                openContactModal();
                 return;
             }
 
-            // 2. Client Name Edit button
+            if (e.target.closest('#tab-btn-files')) {
+                e.preventDefault();
+                openFilesAction();
+                return;
+            }
+
+            if (e.target.closest('#tab-btn-actions')) {
+                e.preventDefault();
+                openActionsModal();
+                return;
+            }
+
+            // 2. Modals close buttons
+            if (e.target.closest('#btn-close-contact-modal') || e.target.closest('#btn-cancel-contact-modal')) {
+                e.preventDefault();
+                closeContactModal();
+                return;
+            }
+
+            if (e.target.closest('#btn-close-actions-modal') || e.target.closest('#btn-cancel-actions-modal')) {
+                e.preventDefault();
+                closeActionsModal();
+                return;
+            }
+
+            // Backdrop click closes modals
+            if (e.target.classList.contains('minicrm-modal-backdrop')) {
+                closeAllModals();
+                return;
+            }
+
+            // 3. Client Name Edit button
             const editBtn = e.target.closest('#btn-edit-client-name');
             if (editBtn) {
                 e.preventDefault();
@@ -65,7 +101,7 @@
                 return;
             }
 
-            // 3. Client Name Save button
+            // 4. Client Name Save button
             const saveBtn = e.target.closest('#btn-save-client-name');
             if (saveBtn) {
                 e.preventDefault();
@@ -73,7 +109,7 @@
                 return;
             }
 
-            // 4. Client Name Cancel button
+            // 5. Client Name Cancel button
             const cancelBtn = e.target.closest('#btn-cancel-client-name');
             if (cancelBtn) {
                 e.preventDefault();
@@ -81,32 +117,39 @@
                 return;
             }
 
-            // 5. Copy Phone button
-            const copyPhoneBtn = e.target.closest('#btn-copy-phone');
+            // 6. Copy Phone button in modal
+            const copyPhoneBtn = e.target.closest('#btn-modal-copy-phone') || e.target.closest('#btn-copy-phone');
             if (copyPhoneBtn) {
                 e.preventDefault();
-                copyText('detail-client-phone', copyPhoneBtn);
+                copyText('modal-contact-phone', copyPhoneBtn);
                 return;
             }
 
-            // 6. Copy Email button
-            const copyEmailBtn = e.target.closest('#btn-copy-email');
+            // 7. Copy Email button in modal
+            const copyEmailBtn = e.target.closest('#btn-modal-copy-email') || e.target.closest('#btn-copy-email');
             if (copyEmailBtn) {
                 e.preventDefault();
-                copyText('detail-client-email', copyEmailBtn);
+                copyText('modal-contact-email', copyEmailBtn);
                 return;
             }
 
-            // 7. Copy FileDrop button
-            const copyFiledropBtn = e.target.closest('#btn-copy-filedrop');
-            if (copyFiledropBtn) {
+            // 8. Copy FileDrop button in activities modal
+            const copyActFiledrop = e.target.closest('.btn-copy-activity-filedrop');
+            if (copyActFiledrop) {
                 e.preventDefault();
-                copyFileDropLink(copyFiledropBtn);
+                const url = copyActFiledrop.dataset.url;
+                if (url) {
+                    navigator.clipboard.writeText(url).then(() => {
+                        const orig = copyActFiledrop.textContent;
+                        copyActFiledrop.textContent = '✔️';
+                        setTimeout(() => { copyActFiledrop.textContent = orig; }, 1500);
+                    });
+                }
                 return;
             }
 
-            // 8. Sync Contact to Nextcloud Contacts button
-            const syncContactBtn = e.target.closest('#btn-sync-contact');
+            // 9. Sync Contact to Nextcloud Contacts button (in modal)
+            const syncContactBtn = e.target.closest('#btn-modal-sync-contact') || e.target.closest('#btn-sync-contact');
             if (syncContactBtn) {
                 e.preventDefault();
                 handleSyncContact(syncContactBtn);
@@ -194,6 +237,7 @@
     }
 
     function renderClientDetail(data) {
+        currentClientData = data;
         const client = data.client;
         const activities = data.activities || [];
         const latestActivity = activities.length > 0 ? activities[0] : null;
@@ -201,90 +245,14 @@
         const editNameBox = document.getElementById('client-name-edit-box');
         if (editNameBox) editNameBox.style.display = 'none';
 
-        document.getElementById('detail-client-name').textContent = client.full_name;
-        document.getElementById('detail-client-id-badge').textContent = `ID: #${client.id}`;
+        const nameEl = document.getElementById('detail-client-name');
+        if (nameEl) nameEl.textContent = client.full_name;
 
-        const phoneEl = document.getElementById('detail-client-phone');
-        phoneEl.textContent = client.phone || '—';
-        phoneEl.href = client.phone ? `tel:${client.phone}` : '#';
+        const idBadge = document.getElementById('detail-client-id-badge');
+        if (idBadge) idBadge.textContent = `ID: #${client.id}`;
 
-        const emailEl = document.getElementById('detail-client-email');
-        emailEl.textContent = client.email || '—';
-        emailEl.href = client.email ? `mailto:${client.email}` : '#';
-
-        const folderEl = document.getElementById('detail-client-folder');
-        if (client.folder_path) {
-            folderEl.href = OC.generateUrl(`/apps/files/?dir=${encodeURIComponent(client.folder_path)}`);
-            folderEl.style.display = 'inline';
-        } else {
-            folderEl.style.display = 'none';
-        }
-
-        const dropEl = document.getElementById('detail-client-filedrop');
-        if (latestActivity && latestActivity.file_drop_url) {
-            dropEl.href = latestActivity.file_drop_url;
-            dropEl.style.display = 'inline';
-        } else {
-            dropEl.style.display = 'none';
-        }
-
-        // Notes
-        const notesEl = document.getElementById('detail-client-notes');
-        if (notesEl) {
-            notesEl.textContent = client.notes || 'Нет заметок';
-        }
-
-        // Nextcloud Contacts Card link / sync button
-        const contactLinkEl = document.getElementById('detail-contact-app-link');
-        const syncContactBtn = document.getElementById('btn-sync-contact');
-        const contactCard = data.contact_card;
-
-        if (contactCard && contactCard.exists && contactCard.app_url) {
-            if (contactLinkEl) {
-                contactLinkEl.href = OC.generateUrl(contactCard.app_url);
-                contactLinkEl.style.display = 'inline-flex';
-            }
-            if (syncContactBtn) {
-                syncContactBtn.style.display = 'none';
-            }
-        } else {
-            if (contactLinkEl) {
-                contactLinkEl.style.display = 'none';
-            }
-            if (syncContactBtn) {
-                syncContactBtn.style.display = 'inline-flex';
-                syncContactBtn.textContent = '🔄 Создать в Contacts';
-                syncContactBtn.disabled = false;
-            }
-        }
-
-        // Activity details
-        if (latestActivity) {
-            const meetingTimeFormatted = latestActivity.meeting_time ? new Date(latestActivity.meeting_time).toLocaleString() : 'Не назначена';
-            const meetingEl = document.getElementById('detail-meeting-time');
-            if (meetingEl) meetingEl.textContent = meetingTimeFormatted;
-
-            const statusEl = document.getElementById('detail-activity-status');
-            if (statusEl) statusEl.textContent = latestActivity.status;
-
-            const headerStatusEl = document.getElementById('detail-activity-status-badge') || document.getElementById('detail-activity-status-header');
-            if (headerStatusEl) headerStatusEl.textContent = latestActivity.status;
-
-            const sourceEl = document.getElementById('detail-activity-source');
-            if (sourceEl) sourceEl.textContent = latestActivity.source || 'Easypoint';
-
-            const deckEl = document.getElementById('detail-deck-link');
-            if (deckEl) {
-                if (latestActivity.deck_task_id) {
-                    deckEl.innerHTML = `<a href="${OC.generateUrl('/apps/deck/#/card/' + latestActivity.deck_task_id)}" target="_blank" class="button primary button-action-full">🎯 Открыть карточку в Deck #${latestActivity.deck_task_id}</a>`;
-                } else {
-                    deckEl.textContent = 'Карточка не привязана';
-                }
-            }
-        }
-
-        // Auto-open Contact tab if none open, or keep active tab open
-        toggleHeaderTab(currentActiveTab || 'contact', true);
+        const headerStatusEl = document.getElementById('detail-activity-status-badge') || document.getElementById('detail-activity-status-header');
+        if (headerStatusEl) headerStatusEl.textContent = latestActivity ? latestActivity.status : 'active';
     }
 
     function renderTimeline(messages) {
@@ -439,15 +407,23 @@
             });
             const result = await res.json();
             if (result.status === 'success' && result.contact) {
-                const contactLinkEl = document.getElementById('detail-contact-app-link');
+                if (currentClientData) {
+                    currentClientData.contact_card = {
+                        exists: true,
+                        app_url: result.contact.app_url,
+                        ...result.contact
+                    };
+                }
+                const contactLinkEl = document.getElementById('modal-contact-app-link') || document.getElementById('detail-contact-app-link');
                 if (contactLinkEl) {
                     contactLinkEl.href = OC.generateUrl(result.contact.app_url);
                     contactLinkEl.style.display = 'inline-flex';
                 }
                 if (btnEl) {
-                    btnEl.textContent = '✔️ Создан в Contacts!';
+                    btnEl.textContent = '✔️ Синхронизировано!';
                     setTimeout(() => {
-                        btnEl.style.display = 'none';
+                        btnEl.textContent = '🔄 Обновить в Contacts';
+                        btnEl.disabled = false;
                     }, 1500);
                 }
             } else {
@@ -467,48 +443,174 @@
         }
     }
 
-    let currentActiveTab = null;
+    function getInitials(name) {
+        if (!name) return '👤';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
 
-    function toggleHeaderTab(tabName, forceOpen = false) {
-        const panel = document.getElementById('header-tab-panel');
-        const panelContact = document.getElementById('panel-contact');
-        const panelFiles = document.getElementById('panel-files');
-        const panelActions = document.getElementById('panel-actions');
+    function formatDateTime(dateStr) {
+        if (!dateStr) return '';
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            return d.toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        } catch {
+            return dateStr;
+        }
+    }
 
-        const btnContact = document.getElementById('tab-btn-contact');
-        const btnFiles = document.getElementById('tab-btn-files');
-        const btnActions = document.getElementById('tab-btn-actions');
+    function openContactModal() {
+        if (!currentClientData || !currentClientData.client) return;
+        const client = currentClientData.client;
+        const contactCard = currentClientData.contact_card || {};
 
-        if (!panel) return;
+        const modal = document.getElementById('modal-contact');
+        if (!modal) return;
 
-        const allButtons = [btnContact, btnFiles, btnActions];
-        const allPanels = { contact: panelContact, files: panelFiles, actions: panelActions };
+        const nameEl = document.getElementById('modal-contact-name');
+        const idEl = document.getElementById('modal-contact-id');
+        const avatarEl = document.getElementById('modal-contact-avatar');
+        const phoneEl = document.getElementById('modal-contact-phone');
+        const emailEl = document.getElementById('modal-contact-email');
+        const addrEl = document.getElementById('modal-contact-address');
+        const notesEl = document.getElementById('modal-contact-notes');
+        const appLink = document.getElementById('modal-contact-app-link');
+        const syncBtn = document.getElementById('btn-modal-sync-contact');
 
-        // If clicking on already open tab without forceOpen -> toggle collapse
-        if (!forceOpen && currentActiveTab === tabName && panel.style.display !== 'none') {
-            panel.style.display = 'none';
-            allButtons.forEach(b => b && b.classList.remove('active'));
-            currentActiveTab = null;
-            return;
+        if (nameEl) nameEl.textContent = client.full_name || 'Клиент';
+        if (idEl) idEl.textContent = `ID: #${client.id}`;
+        if (avatarEl) avatarEl.textContent = getInitials(client.full_name);
+
+        const phone = client.phone || contactCard.phone || '';
+        if (phoneEl) {
+            phoneEl.textContent = phone || '—';
+            phoneEl.href = phone ? `tel:${phone}` : '#';
         }
 
-        // Open requested tab
-        currentActiveTab = tabName;
-        panel.style.display = 'block';
-
-        allButtons.forEach(b => b && b.classList.remove('active'));
-        Object.values(allPanels).forEach(p => { if (p) p.style.display = 'none'; });
-
-        if (tabName === 'contact') {
-            if (btnContact) btnContact.classList.add('active');
-            if (panelContact) panelContact.style.display = 'block';
-        } else if (tabName === 'files') {
-            if (btnFiles) btnFiles.classList.add('active');
-            if (panelFiles) panelFiles.style.display = 'block';
-        } else if (tabName === 'actions') {
-            if (btnActions) btnActions.classList.add('active');
-            if (panelActions) panelActions.style.display = 'block';
+        const email = client.email || contactCard.email || '';
+        if (emailEl) {
+            emailEl.textContent = email || '—';
+            emailEl.href = email ? `mailto:${email}` : '#';
         }
+
+        const address = contactCard.address || 'Адрес не указан';
+        if (addrEl) addrEl.textContent = address;
+
+        const notes = client.notes || contactCard.notes || 'Нет заметок';
+        if (notesEl) notesEl.textContent = notes;
+
+        if (contactCard.exists && contactCard.app_url) {
+            if (appLink) {
+                appLink.href = OC.generateUrl(contactCard.app_url);
+                appLink.style.display = 'inline-flex';
+            }
+            if (syncBtn) {
+                syncBtn.style.display = 'inline-flex';
+                syncBtn.textContent = '🔄 Обновить в Contacts';
+                syncBtn.disabled = false;
+            }
+        } else {
+            if (appLink) appLink.style.display = 'none';
+            if (syncBtn) {
+                syncBtn.style.display = 'inline-flex';
+                syncBtn.textContent = '🔄 Создать в Contacts';
+                syncBtn.disabled = false;
+            }
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    function closeContactModal() {
+        const modal = document.getElementById('modal-contact');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function openFilesAction() {
+        if (!currentClientData || !currentClientData.client) return;
+        const client = currentClientData.client;
+        if (client.folder_path) {
+            const folderUrl = OC.generateUrl(`/apps/files/?dir=${encodeURIComponent(client.folder_path)}`);
+            window.open(folderUrl, '_blank');
+        } else {
+            if (typeof OC.dialogs !== 'undefined' && OC.dialogs.info) {
+                OC.dialogs.info('Папка документов для этого клиента еще не создана.', 'Files');
+            } else {
+                alert('Папка документов для этого клиента еще не создана.');
+            }
+        }
+    }
+
+    function openActionsModal() {
+        if (!currentClientData || !currentClientData.client) return;
+        const client = currentClientData.client;
+        const activities = currentClientData.activities || [];
+
+        const modal = document.getElementById('modal-actions');
+        if (!modal) return;
+
+        const subtitleEl = document.getElementById('modal-actions-client-subtitle');
+        if (subtitleEl) {
+            subtitleEl.textContent = `Клиент: ${client.full_name} (ID: #${client.id})`;
+        }
+
+        const listEl = document.getElementById('modal-activities-list');
+        if (listEl) {
+            if (activities.length === 0) {
+                listEl.innerHTML = '<div class="timeline-empty">У клиента пока нет активностей</div>';
+            } else {
+                listEl.innerHTML = '';
+                activities.forEach(act => {
+                    const item = document.createElement('div');
+                    item.className = 'activity-card-item';
+
+                    const meetingTime = act.meeting_time ? formatDateTime(act.meeting_time) : 'Не назначена';
+                    const createdAt = act.created_at ? formatDateTime(act.created_at) : '';
+
+                    item.innerHTML = `
+                        <div class="activity-card-header">
+                            <div class="activity-badges">
+                                <span class="status-pill">${escapeHtml(act.status || 'scheduled')}</span>
+                                <span class="badge">${escapeHtml(act.source || 'Easypoint')}</span>
+                            </div>
+                            <span class="activity-card-date">${createdAt}</span>
+                        </div>
+                        <div class="activity-card-body">
+                            <div><strong>📅 Время встречи:</strong> ${meetingTime}</div>
+                            ${act.responsible_user ? `<div><strong>👤 Ответственный:</strong> ${escapeHtml(act.responsible_user)}</div>` : ''}
+                        </div>
+                        <div class="activity-card-actions">
+                            ${act.deck_task_id ? `
+                                <a href="${OC.generateUrl('/apps/deck/#/card/' + act.deck_task_id)}" target="_blank" class="button primary">
+                                    🎯 Открыть карточку в Deck #${act.deck_task_id}
+                                </a>
+                            ` : '<span class="value-plain" style="color:var(--color-text-maxcontrast);">Карточка Deck не привязана</span>'}
+                            ${act.file_drop_url ? `
+                                <a href="${escapeHtml(act.file_drop_url)}" target="_blank" class="button primary-outline">
+                                    📤 FileDrop
+                                </a>
+                                <button type="button" class="btn-copy-mini btn-copy-activity-filedrop" data-url="${escapeHtml(act.file_drop_url)}" title="Скопировать ссылку для клиента">📋</button>
+                            ` : ''}
+                        </div>
+                    `;
+                    listEl.appendChild(item);
+                });
+            }
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    function closeActionsModal() {
+        const modal = document.getElementById('modal-actions');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function closeAllModals() {
+        closeContactModal();
+        closeActionsModal();
     }
 
     function openClientNameEditor() {
@@ -570,7 +672,12 @@
     }
 
     // Expose helpers globally to window so HTML inline onclick works if needed
-    window.toggleHeaderTab = toggleHeaderTab;
+    window.openContactModal = openContactModal;
+    window.closeContactModal = closeContactModal;
+    window.openFilesAction = openFilesAction;
+    window.openActionsModal = openActionsModal;
+    window.closeActionsModal = closeActionsModal;
+    window.closeAllModals = closeAllModals;
     window.copyText = copyText;
     window.copyFileDropLink = copyFileDropLink;
     window.openClientNameEditor = openClientNameEditor;

@@ -42,100 +42,17 @@ declare(strict_types=1);
                     <button type="button" id="btn-cancel-client-name">Отмена</button>
                 </div>
 
-                <!-- Navigation Tabs under First & Last Name: Contact, Files, Actions -->
+                <!-- Navigation Action Buttons: Contact, Files, Actions -->
                 <div class="client-header-tabs">
-                    <button type="button" id="tab-btn-contact" class="header-tab-btn">
+                    <button type="button" id="tab-btn-contact" class="header-tab-btn" title="Подробная информация о контакте">
                         👤 Contact
                     </button>
-                    <button type="button" id="tab-btn-files" class="header-tab-btn">
+                    <button type="button" id="tab-btn-files" class="header-tab-btn" title="Открыть персональную директорию в проводнике Files">
                         📁 Files
                     </button>
-                    <button type="button" id="tab-btn-actions" class="header-tab-btn">
+                    <button type="button" id="tab-btn-actions" class="header-tab-btn" title="Структурированный список активностей и задачи в Deck">
                         ⚡ Actions
                     </button>
-                </div>
-
-                <!-- Expandable Tab Panel Content -->
-                <div id="header-tab-panel" class="header-tab-panel" style="display: none;">
-                    <!-- 1. Contact Subpanel -->
-                    <div id="panel-contact" class="tab-subpanel" style="display: none;">
-                        <div class="subpanel-grid">
-                            <div class="subpanel-item">
-                                <span class="subpanel-label">📞 Телефон:</span>
-                                <div class="value-row">
-                                    <a id="detail-client-phone" href="#" class="value-link">—</a>
-                                    <button type="button" id="btn-copy-phone" class="btn-copy-mini" title="Скопировать телефон">📋</button>
-                                </div>
-                            </div>
-                            <div class="subpanel-item">
-                                <span class="subpanel-label">✉️ Email:</span>
-                                <div class="value-row">
-                                    <a id="detail-client-email" href="#" class="value-link">—</a>
-                                    <button type="button" id="btn-copy-email" class="btn-copy-mini" title="Скопировать email">📋</button>
-                                </div>
-                            </div>
-                            <div class="subpanel-item">
-                                <span class="subpanel-label">👥 Карточка Contacts:</span>
-                                <div class="value-row">
-                                    <a id="detail-contact-app-link" href="#" target="_blank" class="button primary-outline" style="display: none;">
-                                        ↗️ Открыть в Contacts
-                                    </a>
-                                    <button type="button" id="btn-sync-contact" class="button primary">
-                                        🔄 Создать в Contacts
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="subpanel-item full-width">
-                                <span class="subpanel-label">📝 Заметки:</span>
-                                <div id="detail-client-notes" class="text-notes">Нет заметок</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 2. Files Subpanel -->
-                    <div id="panel-files" class="tab-subpanel" style="display: none;">
-                        <div class="subpanel-grid">
-                            <div class="subpanel-item">
-                                <span class="subpanel-label">📂 Папка документов в Nextcloud:</span>
-                                <a id="detail-client-folder" href="#" target="_blank" class="button primary-outline">
-                                    📁 Открыть в Files
-                                </a>
-                            </div>
-                            <div class="subpanel-item">
-                                <span class="subpanel-label">📤 Публичная ссылка клиенту (FileDrop):</span>
-                                <div class="filedrop-buttons-row">
-                                    <a id="detail-client-filedrop" href="#" target="_blank" class="button">
-                                        🔗 Страница загрузки
-                                    </a>
-                                    <button type="button" id="btn-copy-filedrop" class="button primary">
-                                        📋 Скопировать ссылку для клиента
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 3. Actions Subpanel -->
-                    <div id="panel-actions" class="tab-subpanel" style="display: none;">
-                        <div class="subpanel-grid">
-                            <div class="subpanel-item">
-                                <span class="subpanel-label">📅 Дата и время встречи:</span>
-                                <strong id="detail-meeting-time" class="value-highlight">—</strong>
-                            </div>
-                            <div class="subpanel-item">
-                                <span class="subpanel-label">📌 Статус заявки:</span>
-                                <span id="detail-activity-status" class="status-pill">—</span>
-                            </div>
-                            <div class="subpanel-item">
-                                <span class="subpanel-label">🎯 Задача в Nextcloud Deck:</span>
-                                <div id="detail-deck-link">—</div>
-                            </div>
-                            <div class="subpanel-item">
-                                <span class="subpanel-label">🏷️ Источник:</span>
-                                <span id="detail-activity-source" class="value-plain">Easypoint</span>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -168,5 +85,78 @@ declare(strict_types=1);
             </div>
         </div>
     </div>
+
+    <!-- Modal: Contact Details -->
+    <div id="modal-contact" class="minicrm-modal-backdrop" style="display: none;">
+        <div class="minicrm-modal-dialog">
+            <div class="minicrm-modal-header">
+                <div class="modal-title-wrap">
+                    <span class="modal-avatar" id="modal-contact-avatar">👤</span>
+                    <div>
+                        <h2 id="modal-contact-name">Карточка контакта</h2>
+                        <span id="modal-contact-id" class="modal-subtitle">ID: #0</span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close-modal" id="btn-close-contact-modal" title="Закрыть">✕</button>
+            </div>
+            <div class="minicrm-modal-body">
+                <div class="modal-info-list">
+                    <div class="modal-info-row">
+                        <span class="info-label">📞 Телефон</span>
+                        <div class="info-value-group">
+                            <a id="modal-contact-phone" href="#" class="info-link">—</a>
+                            <button type="button" id="btn-modal-copy-phone" class="btn-copy-mini" title="Скопировать телефон">📋</button>
+                        </div>
+                    </div>
+                    <div class="modal-info-row">
+                        <span class="info-label">✉️ Email</span>
+                        <div class="info-value-group">
+                            <a id="modal-contact-email" href="#" class="info-link">—</a>
+                            <button type="button" id="btn-modal-copy-email" class="btn-copy-mini" title="Скопировать email">📋</button>
+                        </div>
+                    </div>
+                    <div class="modal-info-row full-width">
+                        <span class="info-label">📍 Адрес (Nextcloud Contacts)</span>
+                        <div id="modal-contact-address" class="info-text">Адрес не указан</div>
+                    </div>
+                    <div class="modal-info-row full-width">
+                        <span class="info-label">📝 Заметки</span>
+                        <div id="modal-contact-notes" class="info-text">Нет заметок</div>
+                    </div>
+                </div>
+            </div>
+            <div class="minicrm-modal-footer">
+                <a id="modal-contact-app-link" href="#" target="_blank" class="button primary" style="display: none;">
+                    ↗️ Открыть в Contacts
+                </a>
+                <button type="button" id="btn-modal-sync-contact" class="button primary-outline">
+                    🔄 Создать в Contacts
+                </button>
+                <button type="button" class="button" id="btn-cancel-contact-modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Actions & Deck -->
+    <div id="modal-actions" class="minicrm-modal-backdrop" style="display: none;">
+        <div class="minicrm-modal-dialog">
+            <div class="minicrm-modal-header">
+                <div>
+                    <h2>⚡ Активности клиента</h2>
+                    <span id="modal-actions-client-subtitle" class="modal-subtitle">История заявок, встреч и задач Deck</span>
+                </div>
+                <button type="button" class="btn-close-modal" id="btn-close-actions-modal" title="Закрыть">✕</button>
+            </div>
+            <div class="minicrm-modal-body">
+                <div id="modal-activities-list" class="activities-cards-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+            <div class="minicrm-modal-footer">
+                <button type="button" class="button" id="btn-cancel-actions-modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
 </div>
+
 

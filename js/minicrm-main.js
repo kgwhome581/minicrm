@@ -71,7 +71,7 @@
         // Tab buttons: Contact, Files, Actions
         const tabBtnContact = document.getElementById('tab-btn-contact');
         if (tabBtnContact) {
-            tabBtnContact.addEventListener('click', toggleContactDrawer);
+            tabBtnContact.addEventListener('click', () => toggleHeaderTab('contact'));
         }
 
         const tabBtnFiles = document.getElementById('tab-btn-files');
@@ -84,9 +84,20 @@
             tabBtnActions.addEventListener('click', () => toggleHeaderTab('actions'));
         }
 
-        const drawerCloseBtn = document.querySelector('.btn-drawer-close');
-        if (drawerCloseBtn) {
-            drawerCloseBtn.addEventListener('click', toggleContactDrawer);
+        // Copy buttons
+        const copyPhoneBtn = document.getElementById('btn-copy-phone');
+        if (copyPhoneBtn) {
+            copyPhoneBtn.addEventListener('click', (e) => copyText('detail-client-phone', e.currentTarget));
+        }
+
+        const copyEmailBtn = document.getElementById('btn-copy-email');
+        if (copyEmailBtn) {
+            copyEmailBtn.addEventListener('click', (e) => copyText('detail-client-email', e.currentTarget));
+        }
+
+        const copyFiledropBtn = document.getElementById('btn-copy-filedrop');
+        if (copyFiledropBtn) {
+            copyFiledropBtn.addEventListener('click', (e) => copyFileDropLink(e.currentTarget));
         }
 
         loadClients();
@@ -233,9 +244,6 @@
                 }
             }
         }
-
-        // Update Right Corner Contact Card
-        updateContactCard(client, latestActivity);
     }
 
     function renderTimeline(messages) {
@@ -362,7 +370,6 @@
                 const clientInCache = clientsCache.find(c => c.id === currentClientId);
                 if (clientInCache) {
                     clientInCache.full_name = updated.full_name;
-                    updateContactCard(clientInCache);
                 }
                 const activeItem = document.querySelector(`.minicrm-client-item[data-client-id="${currentClientId}"] .client-item-name`);
                 if (activeItem) {
@@ -377,141 +384,25 @@
         }
     }
 
-    function updateContactCard(client, latestActivity) {
-        if (!client) return;
-
-        const cardNameEl = document.getElementById('contact-card-name');
-        if (cardNameEl) cardNameEl.textContent = client.full_name || 'Клиент';
-
-        // Avatar initials
-        const avatarEl = document.getElementById('contact-card-avatar');
-        if (avatarEl) {
-            avatarEl.textContent = getInitials(client.full_name || '');
-        }
-
-        // Detailed Name
-        const { first, last } = parseName(client.full_name || '');
-        const firstNameEl = document.getElementById('contact-card-first-name');
-        if (firstNameEl) firstNameEl.textContent = first;
-        const lastNameEl = document.getElementById('contact-card-last-name');
-        if (lastNameEl) lastNameEl.textContent = last;
-
-        // Email
-        const emailEl = document.getElementById('contact-card-email');
-        const actionEmailEl = document.getElementById('contact-action-email');
-        if (emailEl) {
-            emailEl.textContent = client.email || '—';
-            emailEl.href = client.email ? `mailto:${client.email}` : '#';
-        }
-        if (actionEmailEl) {
-            actionEmailEl.href = client.email ? `mailto:${client.email}` : '#';
-        }
-
-        // Phone
-        const phoneEl = document.getElementById('contact-card-phone');
-        const actionCallEl = document.getElementById('contact-action-call');
-        if (phoneEl) {
-            phoneEl.textContent = client.phone || '—';
-            phoneEl.href = client.phone ? `tel:${client.phone}` : '#';
-        }
-        if (actionCallEl) {
-            actionCallEl.href = client.phone ? `tel:${client.phone}` : '#';
-        }
-
-        // Notes
-        const notesEl = document.getElementById('contact-card-notes');
-        if (notesEl) {
-            notesEl.textContent = client.notes || 'Нет заметок';
-        }
-
-        // Cloud ID
-        const cloudIdEl = document.getElementById('contact-card-cloud-id');
-        if (cloudIdEl) {
-            const prefix = client.email ? client.email.split('@')[0] : `client_${client.id}`;
-            cloudIdEl.textContent = `${prefix}@office.violatax.ca`;
-        }
-
-        // Files folder link
-        const folderBtn = document.getElementById('contact-card-folder-btn');
-        const actionFiles = document.getElementById('contact-action-files');
-        if (client.folder_path) {
-            const folderUrl = OC.generateUrl(`/apps/files/?dir=${encodeURIComponent(client.folder_path)}`);
-            if (folderBtn) folderBtn.href = folderUrl;
-            if (actionFiles) actionFiles.href = folderUrl;
-        }
-
-        // Contacts App link
-        const contactsUrl = OC.generateUrl('/apps/contacts/');
-        const appLink = document.getElementById('contact-card-app-link');
-        const appBtn = document.getElementById('contact-btn-open-app');
-        if (appLink) appLink.href = contactsUrl;
-        if (appBtn) appBtn.href = contactsUrl;
-    }
-
-    function getInitials(name) {
-        if (!name) return '👤';
-        const parts = name.trim().split(/\s+/);
-        if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-
-    function parseName(fullName) {
-        if (!fullName) return { first: '—', last: '—' };
-        const parts = fullName.trim().split(/\s+/);
-        if (parts.length === 1) return { first: parts[0], last: '—' };
-        return { first: parts[0], last: parts.slice(1).join(' ') };
-    }
-
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
     let currentActiveTab = null;
 
-    function toggleContactDrawer() {
-        const drawer = document.getElementById('contact-drawer');
-        const btn = document.getElementById('tab-btn-contact');
-        if (!drawer) return;
-
-        const isOpen = drawer.classList.contains('open');
-        if (isOpen) {
-            drawer.classList.remove('open');
-            if (btn) btn.classList.remove('active');
-        } else {
-            drawer.classList.add('open');
-            if (btn) btn.classList.add('active');
-
-            // Populate current client data into contact card
-            if (currentClientId) {
-                const currentClient = clientsCache.find(c => c.id === currentClientId);
-                if (currentClient) {
-                    updateContactCard(currentClient);
-                }
-            }
-        }
-    }
-
     function toggleHeaderTab(tabName) {
-        if (tabName === 'contact') {
-            toggleContactDrawer();
-            return;
-        }
-
         const panel = document.getElementById('header-tab-panel');
+        const panelContact = document.getElementById('panel-contact');
         const panelFiles = document.getElementById('panel-files');
         const panelActions = document.getElementById('panel-actions');
 
+        const btnContact = document.getElementById('tab-btn-contact');
         const btnFiles = document.getElementById('tab-btn-files');
         const btnActions = document.getElementById('tab-btn-actions');
+
+        const allButtons = [btnContact, btnFiles, btnActions];
+        const allPanels = { contact: panelContact, files: panelFiles, actions: panelActions };
 
         // If clicking on already open tab -> toggle collapse
         if (currentActiveTab === tabName) {
             if (panel) panel.style.display = 'none';
-            if (btnFiles) btnFiles.classList.remove('active');
-            if (btnActions) btnActions.classList.remove('active');
+            allButtons.forEach(b => b && b.classList.remove('active'));
             currentActiveTab = null;
             return;
         }
@@ -520,11 +411,19 @@
         currentActiveTab = tabName;
         if (panel) panel.style.display = 'block';
 
-        if (btnFiles) btnFiles.classList.toggle('active', tabName === 'files');
-        if (btnActions) btnActions.classList.toggle('active', tabName === 'actions');
+        allButtons.forEach(b => b && b.classList.remove('active'));
+        Object.values(allPanels).forEach(p => { if (p) p.style.display = 'none'; });
 
-        if (panelFiles) panelFiles.style.display = tabName === 'files' ? 'block' : 'none';
-        if (panelActions) panelActions.style.display = tabName === 'actions' ? 'block' : 'none';
+        if (tabName === 'contact') {
+            if (btnContact) btnContact.classList.add('active');
+            if (panelContact) panelContact.style.display = 'block';
+        } else if (tabName === 'files') {
+            if (btnFiles) btnFiles.classList.add('active');
+            if (panelFiles) panelFiles.style.display = 'block';
+        } else if (tabName === 'actions') {
+            if (btnActions) btnActions.classList.add('active');
+            if (panelActions) panelActions.style.display = 'block';
+        }
     }
 
     function copyText(elementId, btnEl) {
@@ -534,20 +433,6 @@
         if (!text || text === '—') return;
 
         navigator.clipboard.writeText(text).then(() => {
-            if (!btnEl) return;
-            const orig = btnEl.textContent;
-            btnEl.textContent = '✔️';
-            setTimeout(() => { btnEl.textContent = orig; }, 1500);
-        });
-    }
-
-    function copyContactSummary(btnEl) {
-        const name = document.getElementById('contact-card-name')?.textContent || '';
-        const phone = document.getElementById('contact-card-phone')?.textContent || '';
-        const email = document.getElementById('contact-card-email')?.textContent || '';
-        const notes = document.getElementById('contact-card-notes')?.textContent || '';
-        const summary = `${name}\nТел: ${phone}\nEmail: ${email}\nЗаметки: ${notes}`;
-        navigator.clipboard.writeText(summary).then(() => {
             if (!btnEl) return;
             const orig = btnEl.textContent;
             btnEl.textContent = '✔️';
@@ -567,11 +452,24 @@
         });
     }
 
-    // Expose helpers globally to window
-    window.toggleContactDrawer = toggleContactDrawer;
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function debounce(fn, delay) {
+        let timeout;
+        return function (...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+
+    // Expose helpers globally to window so HTML inline onclick works if needed
     window.toggleHeaderTab = toggleHeaderTab;
     window.copyText = copyText;
-    window.copyContactSummary = copyContactSummary;
     window.copyFileDropLink = copyFileDropLink;
     window.openClientNameEditor = () => {
         const nameEl = document.getElementById('detail-client-name');
@@ -588,12 +486,4 @@
         if (box) box.style.display = 'none';
     };
     window.saveClientName = handleSaveClientName;
-
-    function debounce(fn, delay) {
-        let timeout;
-        return function (...args) {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => fn.apply(this, args), delay);
-        };
-    }
 })();

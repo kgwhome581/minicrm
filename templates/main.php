@@ -26,7 +26,13 @@ declare(strict_types=1);
             <div class="minicrm-client-header">
                 <div class="client-title-row">
                     <h1 id="detail-client-name">ФИО Клиента</h1>
+                    <button id="btn-edit-client-name" class="btn-icon" title="Редактировать имя">✏️</button>
                     <span id="detail-client-id-badge" class="badge">ID: #0</span>
+                </div>
+                <div id="client-name-edit-box" class="name-edit-box" style="display: none;">
+                    <input type="text" id="input-edit-client-name" placeholder="Введите Фамилию и Имя" />
+                    <button id="btn-save-client-name" class="primary">Сохранить</button>
+                    <button id="btn-cancel-client-name">Отмена</button>
                 </div>
                 <div class="client-meta-row">
                     <div class="meta-item">

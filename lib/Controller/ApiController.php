@@ -211,6 +211,55 @@ class ApiController extends BaseApiController {
     }
 
     /**
+     * POST /api/v1/clients/{id}
+     * Update client information.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     * @PublicPage
+     */
+    #[NoCSRFRequired]
+    #[NoAdminRequired]
+    #[PublicPage]
+    public function updateClient(int $id): DataResponse {
+        if (!$this->isAuthorized()) {
+            return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $client = $this->clientMapper->find($id);
+
+            $fullName = $this->request->getParam('full_name');
+            if (!empty($fullName)) {
+                $client->setFullName(trim((string)$fullName));
+            }
+
+            $phone = $this->request->getParam('phone');
+            if (!empty($phone)) {
+                $client->setPhone($this->phoneNormalizer->normalize($phone));
+                $client->setPhoneRaw((string)$phone);
+            }
+
+            $email = $this->request->getParam('email');
+            if ($email !== null) {
+                $client->setEmail(!empty($email) ? strtolower(trim((string)$email)) : null);
+            }
+
+            $notes = $this->request->getParam('notes');
+            if ($notes !== null) {
+                $client->setNotes((string)$notes);
+            }
+
+            $client->setUpdatedAt(new DateTime('now'));
+            $saved = $this->clientMapper->update($client);
+
+            return new DataResponse($saved->jsonSerialize(), Http::STATUS_OK);
+        } catch (\Exception $e) {
+            return new DataResponse(['error' => 'Client not found or update failed: ' . $e->getMessage()], Http::STATUS_NOT_FOUND);
+        }
+    }
+
+    /**
      * GET /api/v1/clients/{id}
      */
     #[NoCSRFRequired]

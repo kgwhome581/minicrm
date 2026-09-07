@@ -11,6 +11,7 @@ return [
         ['name' => 'api#ingestLead', 'url' => '/api/v1/leads/ingest', 'verb' => 'POST'],
         ['name' => 'api#findClient', 'url' => '/api/v1/clients/find', 'verb' => 'POST'],
         ['name' => 'api#createClient', 'url' => '/api/v1/clients', 'verb' => 'POST'],
+        ['name' => 'api#updateClient', 'url' => '/api/v1/clients/{id}', 'verb' => 'POST'],
         ['name' => 'api#getClient', 'url' => '/api/v1/clients/{id}', 'verb' => 'GET'],
         ['name' => 'api#listClients', 'url' => '/api/v1/clients', 'verb' => 'GET'],
         ['name' => 'api#createActivity', 'url' => '/api/v1/activities', 'verb' => 'POST'],

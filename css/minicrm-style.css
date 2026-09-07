@@ -114,6 +114,42 @@
     color: var(--color-main-text);
 }
 
+.btn-icon {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 6px;
+    border-radius: var(--border-radius, 4px);
+    transition: background-color 0.15s ease;
+}
+
+.btn-icon:hover {
+    background-color: var(--color-background-hover);
+}
+
+.name-edit-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.name-edit-box input {
+    font-size: 16px;
+    padding: 6px 12px;
+    min-width: 260px;
+    border-radius: var(--border-radius, 6px);
+    border: 1px solid var(--color-primary);
+    background-color: var(--color-main-background);
+    color: var(--color-main-text);
+}
+
+.name-edit-box button {
+    padding: 6px 14px;
+    font-size: 13px;
+}
+
 .badge {
     background: var(--color-border);
     padding: 2px 8px;

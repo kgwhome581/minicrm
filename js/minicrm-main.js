@@ -34,6 +34,40 @@
             sendButton.addEventListener('click', handleSendMessage);
         }
 
+        // Client Name Editing
+        const editNameBtn = document.getElementById('btn-edit-client-name');
+        const saveNameBtn = document.getElementById('btn-save-client-name');
+        const cancelNameBtn = document.getElementById('btn-cancel-client-name');
+        const editNameBox = document.getElementById('client-name-edit-box');
+        const editNameInput = document.getElementById('input-edit-client-name');
+        const detailNameEl = document.getElementById('detail-client-name');
+
+        if (editNameBtn) {
+            editNameBtn.addEventListener('click', () => {
+                if (!currentClientId) return;
+                editNameInput.value = detailNameEl.textContent.trim();
+                editNameBox.style.display = 'flex';
+                editNameInput.focus();
+            });
+        }
+
+        if (cancelNameBtn) {
+            cancelNameBtn.addEventListener('click', () => {
+                editNameBox.style.display = 'none';
+            });
+        }
+
+        if (saveNameBtn) {
+            saveNameBtn.addEventListener('click', handleSaveClientName);
+        }
+
+        if (editNameInput) {
+            editNameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') handleSaveClientName();
+                if (e.key === 'Escape') editNameBox.style.display = 'none';
+            });
+        }
+
         loadClients();
     }
 
@@ -117,6 +151,9 @@
         const client = data.client;
         const activities = data.activities || [];
         const latestActivity = activities.length > 0 ? activities[0] : null;
+
+        const editNameBox = document.getElementById('client-name-edit-box');
+        if (editNameBox) editNameBox.style.display = 'none';
 
         document.getElementById('detail-client-name').textContent = client.full_name;
         document.getElementById('detail-client-id-badge').textContent = `ID: #${client.id}`;
@@ -246,6 +283,54 @@
             }
         } catch (err) {
             console.error('Failed to send message:', err);
+        }
+    }
+
+    async function handleSaveClientName() {
+        if (!currentClientId) return;
+
+        const editNameInput = document.getElementById('input-edit-client-name');
+        const editNameBox = document.getElementById('client-name-edit-box');
+        const detailNameEl = document.getElementById('detail-client-name');
+        const newName = editNameInput.value.trim();
+
+        if (!newName) {
+            alert('Имя не может быть пустым');
+            return;
+        }
+
+        try {
+            const res = await fetch(`${apiBase}/clients/${currentClientId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'requesttoken': OC.requestToken
+                },
+                body: JSON.stringify({
+                    full_name: newName
+                })
+            });
+
+            if (res.ok) {
+                const updated = await res.json();
+                detailNameEl.textContent = updated.full_name;
+                editNameBox.style.display = 'none';
+
+                // Update cache and sidebar item
+                const clientInCache = clientsCache.find(c => c.id === currentClientId);
+                if (clientInCache) {
+                    clientInCache.full_name = updated.full_name;
+                }
+                const activeItem = document.querySelector(`.minicrm-client-item[data-client-id="${currentClientId}"] .client-item-name`);
+                if (activeItem) {
+                    activeItem.textContent = updated.full_name;
+                }
+            } else {
+                alert('Не удалось сохранить имя');
+            }
+        } catch (err) {
+            console.error('Failed to update client name:', err);
+            alert('Ошибка сети при обновлении имени');
         }
     }
 

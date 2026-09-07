@@ -1,0 +1,103 @@
+{
+  "name": "Easypoint to Nextcloud MiniCRM Lead Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "easypoint-booking",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Easypoint Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "id": "node-webhook-1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cloud.violatax.ca/index.php/apps/minicrm/api/v1/leads/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_MINICRM_API_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_name",
+              "value": "={{ $json.body.client_name }}"
+            },
+            {
+              "name": "phone",
+              "value": "={{ $json.body.phone }}"
+            },
+            {
+              "name": "email",
+              "value": "={{ $json.body.email }}"
+            },
+            {
+              "name": "meeting_datetime",
+              "value": "={{ $json.body.meeting_datetime }}"
+            },
+            {
+              "name": "meeting_timezone",
+              "value": "America/Edmonton"
+            },
+            {
+              "name": "responsible_specialist",
+              "value": "={{ $json.body.responsible_specialist || 'admin' }}"
+            },
+            {
+              "name": "source",
+              "value": "easypoint"
+            },
+            {
+              "name": "notes",
+              "value": "={{ $json.body.notes || 'Налоговая консультация' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "MiniCRM Ingest Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        480,
+        300
+      ],
+      "id": "node-http-1"
+    }
+  ],
+  "connections": {
+    "Easypoint Webhook": {
+      "main": [
+        [
+          {
+            "node": "MiniCRM Ingest Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

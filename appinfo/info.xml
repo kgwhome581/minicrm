@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>minicrm</id>
+    <namespace>MiniCRM</namespace>
+    <name>MiniCRM</name>
+    <summary>Custom MiniCRM for Nextcloud with Files, Calendar, Deck and n8n integration</summary>
+    <description>
+        Lightweight and powerful CRM app for Nextcloud tailored for tax and professional practices.
+        Seamlessly integrates customer intake from Easypoint via n8n, automates client folder creation
+        with public file drop links, coordinates Nextcloud Calendar events, creates Deck cards, and
+        provides a multichannel communication timeline.
+    </description>
+    <version>1.0.0</version>
+    <licence>agpl</licence>
+    <author>ViolaTax</author>
+    <category>organization</category>
+    <website>https://violatax.ca</website>
+    <bugs>https://violatax.ca</bugs>
+    <dependencies>
+        <nextcloud min-version="26" max-version="40"/>
+    </dependencies>
+    <navigations>
+        <navigation>
+            <name>MiniCRM</name>
+            <route>minicrm.page.index</route>
+            <icon>app.svg</icon>
+            <order>15</order>
+        </navigation>
+    </navigations>
+</info>

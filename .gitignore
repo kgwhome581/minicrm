@@ -1,0 +1,18 @@
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Node / Build artifacts
+node_modules/
+dist/
+
+# Logs & Cache
+*.log
+.cache/

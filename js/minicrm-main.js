@@ -68,6 +68,27 @@
             });
         }
 
+        // Tab buttons: Contact, Files, Actions
+        const tabBtnContact = document.getElementById('tab-btn-contact');
+        if (tabBtnContact) {
+            tabBtnContact.addEventListener('click', toggleContactDrawer);
+        }
+
+        const tabBtnFiles = document.getElementById('tab-btn-files');
+        if (tabBtnFiles) {
+            tabBtnFiles.addEventListener('click', () => toggleHeaderTab('files'));
+        }
+
+        const tabBtnActions = document.getElementById('tab-btn-actions');
+        if (tabBtnActions) {
+            tabBtnActions.addEventListener('click', () => toggleHeaderTab('actions'));
+        }
+
+        const drawerCloseBtn = document.querySelector('.btn-drawer-close');
+        if (drawerCloseBtn) {
+            drawerCloseBtn.addEventListener('click', toggleContactDrawer);
+        }
+
         loadClients();
     }
 
@@ -447,6 +468,126 @@
         div.textContent = text;
         return div.innerHTML;
     }
+
+    let currentActiveTab = null;
+
+    function toggleContactDrawer() {
+        const drawer = document.getElementById('contact-drawer');
+        const btn = document.getElementById('tab-btn-contact');
+        if (!drawer) return;
+
+        const isOpen = drawer.classList.contains('open');
+        if (isOpen) {
+            drawer.classList.remove('open');
+            if (btn) btn.classList.remove('active');
+        } else {
+            drawer.classList.add('open');
+            if (btn) btn.classList.add('active');
+
+            // Populate current client data into contact card
+            if (currentClientId) {
+                const currentClient = clientsCache.find(c => c.id === currentClientId);
+                if (currentClient) {
+                    updateContactCard(currentClient);
+                }
+            }
+        }
+    }
+
+    function toggleHeaderTab(tabName) {
+        if (tabName === 'contact') {
+            toggleContactDrawer();
+            return;
+        }
+
+        const panel = document.getElementById('header-tab-panel');
+        const panelFiles = document.getElementById('panel-files');
+        const panelActions = document.getElementById('panel-actions');
+
+        const btnFiles = document.getElementById('tab-btn-files');
+        const btnActions = document.getElementById('tab-btn-actions');
+
+        // If clicking on already open tab -> toggle collapse
+        if (currentActiveTab === tabName) {
+            if (panel) panel.style.display = 'none';
+            if (btnFiles) btnFiles.classList.remove('active');
+            if (btnActions) btnActions.classList.remove('active');
+            currentActiveTab = null;
+            return;
+        }
+
+        // Open requested tab
+        currentActiveTab = tabName;
+        if (panel) panel.style.display = 'block';
+
+        if (btnFiles) btnFiles.classList.toggle('active', tabName === 'files');
+        if (btnActions) btnActions.classList.toggle('active', tabName === 'actions');
+
+        if (panelFiles) panelFiles.style.display = tabName === 'files' ? 'block' : 'none';
+        if (panelActions) panelActions.style.display = tabName === 'actions' ? 'block' : 'none';
+    }
+
+    function copyText(elementId, btnEl) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        const text = el.textContent.trim();
+        if (!text || text === '—') return;
+
+        navigator.clipboard.writeText(text).then(() => {
+            if (!btnEl) return;
+            const orig = btnEl.textContent;
+            btnEl.textContent = '✔️';
+            setTimeout(() => { btnEl.textContent = orig; }, 1500);
+        });
+    }
+
+    function copyContactSummary(btnEl) {
+        const name = document.getElementById('contact-card-name')?.textContent || '';
+        const phone = document.getElementById('contact-card-phone')?.textContent || '';
+        const email = document.getElementById('contact-card-email')?.textContent || '';
+        const notes = document.getElementById('contact-card-notes')?.textContent || '';
+        const summary = `${name}\nТел: ${phone}\nEmail: ${email}\nЗаметки: ${notes}`;
+        navigator.clipboard.writeText(summary).then(() => {
+            if (!btnEl) return;
+            const orig = btnEl.textContent;
+            btnEl.textContent = '✔️';
+            setTimeout(() => { btnEl.textContent = orig; }, 1500);
+        });
+    }
+
+    function copyFileDropLink(btnEl) {
+        const dropLink = document.getElementById('detail-client-filedrop');
+        if (!dropLink || !dropLink.href) return;
+
+        navigator.clipboard.writeText(dropLink.href).then(() => {
+            if (!btnEl) return;
+            const orig = btnEl.textContent;
+            btnEl.textContent = '✔️ Скопировано!';
+            setTimeout(() => { btnEl.textContent = orig; }, 2000);
+        });
+    }
+
+    // Expose helpers globally to window
+    window.toggleContactDrawer = toggleContactDrawer;
+    window.toggleHeaderTab = toggleHeaderTab;
+    window.copyText = copyText;
+    window.copyContactSummary = copyContactSummary;
+    window.copyFileDropLink = copyFileDropLink;
+    window.openClientNameEditor = () => {
+        const nameEl = document.getElementById('detail-client-name');
+        const box = document.getElementById('client-name-edit-box');
+        const input = document.getElementById('input-edit-client-name');
+        if (!nameEl || !box || !input) return;
+        input.value = nameEl.textContent.trim();
+        box.style.display = 'flex';
+        input.focus();
+        input.select();
+    };
+    window.closeClientNameEditor = () => {
+        const box = document.getElementById('client-name-edit-box');
+        if (box) box.style.display = 'none';
+    };
+    window.saveClientName = handleSaveClientName;
 
     function debounce(fn, delay) {
         let timeout;

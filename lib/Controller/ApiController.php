@@ -13,6 +13,7 @@ use OCA\MiniCRM\Db\Identity;
 use OCA\MiniCRM\Db\IdentityMapper;
 use OCA\MiniCRM\Db\Message;
 use OCA\MiniCRM\Db\MessageMapper;
+use OCA\MiniCRM\Service\ContactBridgeService;
 use OCA\MiniCRM\Service\FolderService;
 use OCA\MiniCRM\Service\IngestionService;
 use OCA\MiniCRM\Service\PhoneNormalizer;
@@ -46,6 +47,7 @@ class ApiController extends BaseApiController {
         private MessageMapper $messageMapper,
         private PhoneNormalizer $phoneNormalizer,
         private FolderService $folderService,
+        private ContactBridgeService $contactBridge,
         private IConfig $config,
         private IUserSession $userSession,
         private LoggerInterface $logger
@@ -253,9 +255,55 @@ class ApiController extends BaseApiController {
             $client->setUpdatedAt(new DateTime('now'));
             $saved = $this->clientMapper->update($client);
 
+            // Sync updated contact into Nextcloud Contacts
+            try {
+                $activities = $this->activityMapper->findByClientId($id);
+                $responsibleUser = (!empty($activities) && !empty($activities[0]->getResponsibleUser()))
+                    ? $activities[0]->getResponsibleUser()
+                    : 'admin';
+                $this->contactBridge->syncContact(
+                    $responsibleUser,
+                    $saved,
+                    $saved->getFolderPath() ? '/apps/files/?dir=' . urlencode($saved->getFolderPath()) : null
+                );
+            } catch (\Exception $e) {
+                $this->logger->debug('Contact sync during client update: ' . $e->getMessage(), ['app' => 'minicrm']);
+            }
+
             return new DataResponse($saved->jsonSerialize(), Http::STATUS_OK);
         } catch (\Exception $e) {
             return new DataResponse(['error' => 'Client not found or update failed: ' . $e->getMessage()], Http::STATUS_NOT_FOUND);
+        }
+    }
+
+    /**
+     * POST /api/v1/clients/{id}/sync-contact
+     * Manually or dynamically sync client to Nextcloud Contacts module.
+     */
+    #[NoCSRFRequired]
+    #[NoAdminRequired]
+    #[PublicPage]
+    public function syncContact(int $id): DataResponse {
+        if (!$this->isAuthorized()) {
+            return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $client = $this->clientMapper->find($id);
+            $activities = $this->activityMapper->findByClientId($id);
+            $responsibleUser = (!empty($activities) && !empty($activities[0]->getResponsibleUser()))
+                ? $activities[0]->getResponsibleUser()
+                : 'admin';
+
+            $folderUrl = $client->getFolderPath() ? '/apps/files/?dir=' . urlencode($client->getFolderPath()) : null;
+            $contactInfo = $this->contactBridge->syncContact($responsibleUser, $client, $folderUrl);
+
+            return new DataResponse([
+                'status' => 'success',
+                'contact' => $contactInfo,
+            ], Http::STATUS_OK);
+        } catch (\Exception $e) {
+            return new DataResponse(['error' => 'Sync failed: ' . $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -274,11 +322,13 @@ class ApiController extends BaseApiController {
             $client = $this->clientMapper->find($id);
             $activities = $this->activityMapper->findByClientId($id);
             $identities = $this->identityMapper->findByClientId($id);
+            $contactCard = $this->contactBridge->getContactInfo($client->getUuid());
 
             return new DataResponse([
                 'client' => $client->jsonSerialize(),
                 'activities' => array_map(fn($a) => $a->jsonSerialize(), $activities),
                 'identities' => array_map(fn($i) => $i->jsonSerialize(), $identities),
+                'contact_card' => $contactCard,
             ]);
         } catch (\Exception) {
             return new DataResponse(['error' => 'Client not found'], Http::STATUS_NOT_FOUND);

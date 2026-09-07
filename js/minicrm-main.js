@@ -104,6 +104,14 @@
                 copyFileDropLink(copyFiledropBtn);
                 return;
             }
+
+            // 8. Sync Contact to Nextcloud Contacts button
+            const syncContactBtn = e.target.closest('#btn-sync-contact');
+            if (syncContactBtn) {
+                e.preventDefault();
+                handleSyncContact(syncContactBtn);
+                return;
+            }
         });
 
         loadClients();
@@ -224,6 +232,30 @@
         const notesEl = document.getElementById('detail-client-notes');
         if (notesEl) {
             notesEl.textContent = client.notes || 'Нет заметок';
+        }
+
+        // Nextcloud Contacts Card link / sync button
+        const contactLinkEl = document.getElementById('detail-contact-app-link');
+        const syncContactBtn = document.getElementById('btn-sync-contact');
+        const contactCard = data.contact_card;
+
+        if (contactCard && contactCard.exists && contactCard.app_url) {
+            if (contactLinkEl) {
+                contactLinkEl.href = OC.generateUrl(contactCard.app_url);
+                contactLinkEl.style.display = 'inline-flex';
+            }
+            if (syncContactBtn) {
+                syncContactBtn.style.display = 'none';
+            }
+        } else {
+            if (contactLinkEl) {
+                contactLinkEl.style.display = 'none';
+            }
+            if (syncContactBtn) {
+                syncContactBtn.style.display = 'inline-flex';
+                syncContactBtn.textContent = '🔄 Создать в Contacts';
+                syncContactBtn.disabled = false;
+            }
         }
 
         // Activity details
@@ -390,6 +422,48 @@
         } catch (err) {
             console.error('Failed to update client name:', err);
             alert('Ошибка сети при обновлении имени');
+        }
+    }
+
+    async function handleSyncContact(btnEl) {
+        if (!currentClientId) return;
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.textContent = '⏳ Синхронизация...';
+        }
+
+        try {
+            const res = await fetch(`${apiBase}/clients/${currentClientId}/sync-contact`, {
+                method: 'POST',
+                headers: { 'requesttoken': OC.requestToken }
+            });
+            const result = await res.json();
+            if (result.status === 'success' && result.contact) {
+                const contactLinkEl = document.getElementById('detail-contact-app-link');
+                if (contactLinkEl) {
+                    contactLinkEl.href = OC.generateUrl(result.contact.app_url);
+                    contactLinkEl.style.display = 'inline-flex';
+                }
+                if (btnEl) {
+                    btnEl.textContent = '✔️ Создан в Contacts!';
+                    setTimeout(() => {
+                        btnEl.style.display = 'none';
+                    }, 1500);
+                }
+            } else {
+                alert('Ошибка синхронизации: ' + (result.error || 'Неизвестная ошибка'));
+                if (btnEl) {
+                    btnEl.disabled = false;
+                    btnEl.textContent = '🔄 Создать в Contacts';
+                }
+            }
+        } catch (err) {
+            console.error('Failed to sync contact:', err);
+            alert('Ошибка сети при синхронизации контакта');
+            if (btnEl) {
+                btnEl.disabled = false;
+                btnEl.textContent = '🔄 Создать в Contacts';
+            }
         }
     }
 

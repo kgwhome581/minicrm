@@ -9,6 +9,7 @@ use OCA\MiniCRM\Db\ClientMapper;
 use OCA\MiniCRM\Db\IdentityMapper;
 use OCA\MiniCRM\Db\MessageMapper;
 use OCA\MiniCRM\Service\CalendarBridgeService;
+use OCA\MiniCRM\Service\ContactBridgeService;
 use OCA\MiniCRM\Service\DeckBridgeService;
 use OCA\MiniCRM\Service\FolderService;
 use OCA\MiniCRM\Service\IngestionService;
@@ -66,6 +67,13 @@ class Application extends App implements IBootstrap {
             );
         });
 
+        $context->registerService(ContactBridgeService::class, function ($c) {
+            return new ContactBridgeService(
+                $c->get('OCP\IDBConnection'),
+                $c->get('Psr\Log\LoggerInterface')
+            );
+        });
+
         $context->registerService(DeckBridgeService::class, function ($c) {
             return new DeckBridgeService(
                 $c->get('OCP\IDBConnection'),
@@ -84,6 +92,7 @@ class Application extends App implements IBootstrap {
                 $c->get(FolderService::class),
                 $c->get(CalendarBridgeService::class),
                 $c->get(DeckBridgeService::class),
+                $c->get(ContactBridgeService::class),
                 $c->get('OCP\IDBConnection'),
                 $c->get('Psr\Log\LoggerInterface')
             );

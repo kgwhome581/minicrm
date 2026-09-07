@@ -74,6 +74,17 @@ declare(strict_types=1);
                                     <button type="button" id="btn-copy-email" class="btn-copy-mini" title="Скопировать email">📋</button>
                                 </div>
                             </div>
+                            <div class="subpanel-item">
+                                <span class="subpanel-label">👥 Карточка Contacts:</span>
+                                <div class="value-row">
+                                    <a id="detail-contact-app-link" href="#" target="_blank" class="button primary-outline" style="display: none;">
+                                        ↗️ Открыть в Contacts
+                                    </a>
+                                    <button type="button" id="btn-sync-contact" class="button primary">
+                                        🔄 Создать в Contacts
+                                    </button>
+                                </div>
+                            </div>
                             <div class="subpanel-item full-width">
                                 <span class="subpanel-label">📝 Заметки:</span>
                                 <div id="detail-client-notes" class="text-notes">Нет заметок</div>

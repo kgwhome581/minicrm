@@ -27,6 +27,7 @@ class IngestionService {
         private FolderService $folderService,
         private CalendarBridgeService $calendarBridge,
         private DeckBridgeService $deckBridge,
+        private ContactBridgeService $contactBridge,
         private IDBConnection $db,
         private LoggerInterface $logger
     ) {}
@@ -176,6 +177,18 @@ class IngestionService {
                 $stackId
             );
 
+            // 6b. Sync Contact into Nextcloud Contacts module
+            $contactInfo = null;
+            try {
+                $contactInfo = $this->contactBridge->syncContact(
+                    $responsibleUser,
+                    $client,
+                    $folderInfo['folder_path'] ?? null
+                );
+            } catch (\Exception $e) {
+                $this->logger->error('Error syncing contact to Nextcloud Contacts: ' . $e->getMessage(), ['app' => 'minicrm']);
+            }
+
             // 7. Save Activity Record
             $activity = new Activity();
             $activity->setActivityUuid($activityUuid);
@@ -235,6 +248,7 @@ class IngestionService {
                 'folder_path' => $folderInfo['activity_folder_path'],
                 'deck_task_id' => $deckTaskId,
                 'calendar_event_id' => $calendarEventId,
+                'contact' => $contactInfo,
             ];
         } catch (\Exception $e) {
             $this->db->rollBack();

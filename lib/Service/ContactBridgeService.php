@@ -165,61 +165,37 @@ class ContactBridgeService {
             if (!empty($clientUuid)) {
                 $vcfFileName = $clientUuid . '.vcf';
                 $qb = $this->db->getQueryBuilder();
-                $qb->select('id', 'uri', 'carddata')
+                $qb->select('*')
                     ->from('cards')
                     ->where($qb->expr()->eq('uri', $qb->createNamedParameter($vcfFileName)))
                     ->setMaxResults(1);
                 $res = $qb->executeQuery();
-                $card = $res->fetch();
+                $found = $res->fetch();
                 $res->closeCursor();
+                if ($found !== false && !empty($found['uri'])) {
+                    $card = $found;
+                }
             }
 
             // 2. Try by email via cards_properties
-            if (($card === false || $card === null) && !empty($email)) {
-                $qb = $this->db->getQueryBuilder();
-                $qb->select('c.id', 'c.uri', 'c.carddata')
-                    ->from('cards_properties', 'cp')
-                    ->innerJoin('cp', 'cards', 'c', $qb->expr()->eq('cp.cardid', 'c.id'))
-                    ->where($qb->expr()->eq('cp.name', $qb->createNamedParameter('EMAIL')))
-                    ->andWhere($qb->expr()->eq('cp.value', $qb->createNamedParameter($email)))
-                    ->setMaxResults(1);
-                $res = $qb->executeQuery();
-                $card = $res->fetch();
-                $res->closeCursor();
+            if ($card === null && !empty($email)) {
+                $card = $this->findCardByProperty('EMAIL', $email, false);
             }
 
             // 3. Try by phone via cards_properties
-            if (($card === false || $card === null) && !empty($phone)) {
+            if ($card === null && !empty($phone)) {
                 $cleanPhone = preg_replace('/[^0-9+]/', '', $phone);
                 if (strlen($cleanPhone) >= 5) {
-                    $qb = $this->db->getQueryBuilder();
-                    $qb->select('c.id', 'c.uri', 'c.carddata')
-                        ->from('cards_properties', 'cp')
-                        ->innerJoin('cp', 'cards', 'c', $qb->expr()->eq('cp.cardid', 'c.id'))
-                        ->where($qb->expr()->eq('cp.name', $qb->createNamedParameter('TEL')))
-                        ->andWhere($qb->expr()->like('cp.value', $qb->createNamedParameter('%' . substr($cleanPhone, -7) . '%')))
-                        ->setMaxResults(1);
-                    $res = $qb->executeQuery();
-                    $card = $res->fetch();
-                    $res->closeCursor();
+                    $card = $this->findCardByProperty('TEL', '%' . substr($cleanPhone, -7) . '%', true);
                 }
             }
 
             // 4. Try by full name via cards_properties
-            if (($card === false || $card === null) && !empty($fullName)) {
-                $qb = $this->db->getQueryBuilder();
-                $qb->select('c.id', 'c.uri', 'c.carddata')
-                    ->from('cards_properties', 'cp')
-                    ->innerJoin('cp', 'cards', 'c', $qb->expr()->eq('cp.cardid', 'c.id'))
-                    ->where($qb->expr()->eq('cp.name', $qb->createNamedParameter('FN')))
-                    ->andWhere($qb->expr()->eq('cp.value', $qb->createNamedParameter(trim($fullName))))
-                    ->setMaxResults(1);
-                $res = $qb->executeQuery();
-                $card = $res->fetch();
-                $res->closeCursor();
+            if ($card === null && !empty($fullName)) {
+                $card = $this->findCardByProperty('FN', trim($fullName), false);
             }
 
-            if ($card !== false && $card !== null && !empty($card['uri'])) {
+            if ($card !== null && !empty($card['uri'])) {
                 $encodedUri = rtrim(strtr(base64_encode((string)$card['uri']), '+/', '-_'), '=');
                 $cardData = (string)($card['carddata'] ?? '');
                 $parsed = $this->parseVcardData($cardData);
@@ -233,7 +209,7 @@ class ContactBridgeService {
                     'notes' => $parsed['notes'] ?? null,
                 ];
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->debug('Error checking contact card: ' . $e->getMessage(), ['app' => 'minicrm']);
         }
 
@@ -245,6 +221,49 @@ class ContactBridgeService {
             'phone' => $phone,
             'notes' => null,
         ];
+    }
+
+    /**
+     * Looks up card by property in cards_properties table.
+     */
+    private function findCardByProperty(string $name, string $value, bool $like = false): ?array {
+        try {
+            $qb = $this->db->getQueryBuilder();
+            $qb->select('cardid')
+                ->from('cards_properties')
+                ->where($qb->expr()->eq('name', $qb->createNamedParameter($name)));
+
+            if ($like) {
+                $qb->andWhere($qb->expr()->like('value', $qb->createNamedParameter($value)));
+            } else {
+                $qb->andWhere($qb->expr()->eq('value', $qb->createNamedParameter($value)));
+            }
+
+            $qb->setMaxResults(1);
+            $res = $qb->executeQuery();
+            $row = $res->fetch();
+            $res->closeCursor();
+
+            if ($row !== false && isset($row['cardid']) && !empty($row['cardid'])) {
+                $cardId = (int)$row['cardid'];
+                $qb2 = $this->db->getQueryBuilder();
+                $qb2->select('*')
+                    ->from('cards')
+                    ->where($qb2->expr()->eq('id', $qb2->createNamedParameter($cardId)))
+                    ->setMaxResults(1);
+                $res2 = $qb2->executeQuery();
+                $card = $res2->fetch();
+                $res2->closeCursor();
+
+                if ($card !== false && !empty($card['uri'])) {
+                    return $card;
+                }
+            }
+        } catch (\Throwable $e) {
+            $this->logger->debug('Error looking up card by property: ' . $e->getMessage(), ['app' => 'minicrm']);
+        }
+
+        return null;
     }
 
     /**

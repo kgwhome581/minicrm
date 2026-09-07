@@ -169,6 +169,11 @@
             const data = await response.json();
             clientsCache = data.clients || [];
             renderClientList(clientsCache);
+
+            // Auto-select first client on load if none selected
+            if (clientsCache.length > 0 && !currentClientId) {
+                selectClient(clientsCache[0].id);
+            }
         } catch (err) {
             if (clientList) {
                 clientList.innerHTML = '<li class="loading-placeholder">Ошибка загрузки клиентов</li>';
@@ -220,17 +225,38 @@
         if (emptyView) emptyView.style.display = 'none';
         if (detailView) detailView.style.display = 'flex';
 
+        // Pre-populate immediately from local cache so buttons work instantly
+        const cachedClient = clientsCache.find(c => c.id === clientId);
+        if (cachedClient) {
+            currentClientData = {
+                client: cachedClient,
+                activities: [],
+                identities: [],
+                contact_card: { exists: false }
+            };
+            renderClientDetail(currentClientData);
+        }
+
         try {
             const [clientRes, timelineRes] = await Promise.all([
                 fetch(`${apiBase}/clients/${clientId}`, { headers: { 'requesttoken': OC.requestToken } }),
                 fetch(`${apiBase}/clients/${clientId}/timeline`, { headers: { 'requesttoken': OC.requestToken } })
             ]);
 
-            const clientData = await clientRes.json();
-            const timelineData = await timelineRes.json();
+            if (clientRes.ok) {
+                const clientData = await clientRes.json();
+                if (clientData && clientData.client) {
+                    currentClientData = clientData;
+                    renderClientDetail(clientData);
+                }
+            } else {
+                console.warn('API error fetching client details:', clientRes.status);
+            }
 
-            renderClientDetail(clientData);
-            renderTimeline(timelineData.messages || []);
+            if (timelineRes.ok) {
+                const timelineData = await timelineRes.json();
+                renderTimeline(timelineData.messages || []);
+            }
         } catch (err) {
             console.error('Error fetching client details:', err);
         }
@@ -462,12 +488,27 @@
     }
 
     function openContactModal() {
-        if (!currentClientData || !currentClientData.client) return;
+        if (!currentClientData || !currentClientData.client) {
+            if (currentClientId) {
+                const found = clientsCache.find(c => c.id === currentClientId);
+                if (found) {
+                    currentClientData = { client: found, activities: [], contact_card: { exists: false } };
+                }
+            }
+            if (!currentClientData || !currentClientData.client) {
+                console.warn('openContactModal: No client selected');
+                return;
+            }
+        }
+
         const client = currentClientData.client;
         const contactCard = currentClientData.contact_card || {};
 
         const modal = document.getElementById('modal-contact');
-        if (!modal) return;
+        if (!modal) {
+            console.error('modal-contact element not found in DOM');
+            return;
+        }
 
         const nameEl = document.getElementById('modal-contact-name');
         const idEl = document.getElementById('modal-contact-id');
@@ -529,7 +570,19 @@
     }
 
     function openFilesAction() {
-        if (!currentClientData || !currentClientData.client) return;
+        if (!currentClientData || !currentClientData.client) {
+            if (currentClientId) {
+                const found = clientsCache.find(c => c.id === currentClientId);
+                if (found) {
+                    currentClientData = { client: found, activities: [], contact_card: { exists: false } };
+                }
+            }
+            if (!currentClientData || !currentClientData.client) {
+                console.warn('openFilesAction: No client selected');
+                return;
+            }
+        }
+
         const client = currentClientData.client;
         if (client.folder_path) {
             const folderUrl = OC.generateUrl(`/apps/files/?dir=${encodeURIComponent(client.folder_path)}`);
@@ -544,12 +597,27 @@
     }
 
     function openActionsModal() {
-        if (!currentClientData || !currentClientData.client) return;
+        if (!currentClientData || !currentClientData.client) {
+            if (currentClientId) {
+                const found = clientsCache.find(c => c.id === currentClientId);
+                if (found) {
+                    currentClientData = { client: found, activities: [], contact_card: { exists: false } };
+                }
+            }
+            if (!currentClientData || !currentClientData.client) {
+                console.warn('openActionsModal: No client selected');
+                return;
+            }
+        }
+
         const client = currentClientData.client;
         const activities = currentClientData.activities || [];
 
         const modal = document.getElementById('modal-actions');
-        if (!modal) return;
+        if (!modal) {
+            console.error('modal-actions element not found in DOM');
+            return;
+        }
 
         const subtitleEl = document.getElementById('modal-actions-client-subtitle');
         if (subtitleEl) {

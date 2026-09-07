@@ -44,7 +44,7 @@ declare(strict_types=1);
 
                 <!-- Navigation Tabs under First & Last Name: Contact, Files, Actions -->
                 <div class="client-header-tabs">
-                    <button type="button" id="tab-btn-contact" class="header-tab-btn" onclick="toggleHeaderTab('contact')">
+                    <button type="button" id="tab-btn-contact" class="header-tab-btn" onclick="toggleContactDrawer()">
                         👤 Contact
                     </button>
                     <button type="button" id="tab-btn-files" class="header-tab-btn" onclick="toggleHeaderTab('files')">
@@ -55,31 +55,8 @@ declare(strict_types=1);
                     </button>
                 </div>
 
-                <!-- Expandable Tab Panel Content -->
+                <!-- Expandable Tab Panel Content (for Files and Actions) -->
                 <div id="header-tab-panel" class="header-tab-panel" style="display: none;">
-                    <!-- 1. Contact Subpanel -->
-                    <div id="panel-contact" class="tab-subpanel" style="display: none;">
-                        <div class="subpanel-grid">
-                            <div class="subpanel-item">
-                                <span class="subpanel-label">📞 Телефон:</span>
-                                <div class="value-row">
-                                    <a id="detail-client-phone" href="#" class="value-link">—</a>
-                                    <button type="button" class="btn-copy-mini" onclick="copyText('detail-client-phone', this)" title="Скопировать телефон">📋</button>
-                                </div>
-                            </div>
-                            <div class="subpanel-item">
-                                <span class="subpanel-label">✉️ Email:</span>
-                                <div class="value-row">
-                                    <a id="detail-client-email" href="#" class="value-link">—</a>
-                                    <button type="button" class="btn-copy-mini" onclick="copyText('detail-client-email', this)" title="Скопировать email">📋</button>
-                                </div>
-                            </div>
-                            <div class="subpanel-item full-width">
-                                <span class="subpanel-label">📝 Заметки:</span>
-                                <div id="detail-client-notes" class="text-notes">Нет заметок</div>
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- 2. Files Subpanel -->
                     <div id="panel-files" class="tab-subpanel" style="display: none;">
@@ -155,31 +132,190 @@ declare(strict_types=1);
                     <button id="reply-send-button" class="primary">Отправить через n8n</button>
                 </div>
             </div>
+
+            <!-- Nextcloud Contact View (Drawer in Right Corner) -->
+            <div id="contact-drawer" class="minicrm-contact-drawer" style="display: none;">
+                <div class="contact-drawer-header">
+                    <div class="contact-drawer-title">
+                        <span class="nc-contacts-icon">👥</span>
+                        <span>Nextcloud Contact</span>
+                    </div>
+                    <div class="contact-drawer-actions">
+                        <a id="contact-card-app-link" href="#" target="_blank" class="btn-drawer-action" title="Открыть в приложении Contacts">↗️ Contacts</a>
+                        <button type="button" class="btn-drawer-close" onclick="toggleContactDrawer()" title="Закрыть карточку">✕</button>
+                    </div>
+                </div>
+
+                <div class="contact-drawer-body">
+                    <!-- Profile / Hero Section -->
+                    <div class="contact-card-hero">
+                        <div class="contact-avatar-wrapper">
+                            <div id="contact-card-avatar" class="contact-avatar">👤</div>
+                            <span class="avatar-status-dot" title="Активен"></span>
+                        </div>
+                        <div class="contact-hero-info">
+                            <h2 id="contact-card-name">Имя Клиента</h2>
+                            <div class="contact-card-subtitle" id="contact-card-role">Клиент ViolaTax & Bookkeeping Services</div>
+                            <div class="contact-quick-actions">
+                                <a id="contact-action-call" href="#" class="quick-action-btn" title="Позвонить">📞</a>
+                                <a id="contact-action-email" href="#" class="quick-action-btn" title="Написать Email">✉️</a>
+                                <button type="button" class="quick-action-btn" onclick="copyContactSummary(this)" title="Скопировать данные контакта">📋</button>
+                                <a id="contact-action-files" href="#" target="_blank" class="quick-action-btn" title="Открыть папку клиента в Files">📂</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="contact-drawer-divider"></div>
+
+                    <!-- Email Section -->
+                    <div class="contact-property-group">
+                        <div class="property-header">
+                            <span class="property-icon">✉️</span>
+                            <span class="property-title">Email</span>
+                        </div>
+                        <div class="property-row">
+                            <span class="property-type">Other</span>
+                            <a id="contact-card-email" href="#" class="property-value">—</a>
+                            <button type="button" class="btn-copy-mini" onclick="copyText('contact-card-email', this)" title="Скопировать Email">📋</button>
+                        </div>
+                    </div>
+
+                    <!-- Phone Section -->
+                    <div class="contact-property-group">
+                        <div class="property-header">
+                            <span class="property-icon">📞</span>
+                            <span class="property-title">Телефон</span>
+                        </div>
+                        <div class="property-row">
+                            <span class="property-type">Mobile</span>
+                            <a id="contact-card-phone" href="#" class="property-value">—</a>
+                            <button type="button" class="btn-copy-mini" onclick="copyText('contact-card-phone', this)" title="Скопировать Телефон">📋</button>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Name Section -->
+                    <div class="contact-property-group">
+                        <div class="property-header">
+                            <span class="property-icon">📇</span>
+                            <span class="property-title">Detailed name</span>
+                        </div>
+                        <div class="property-row">
+                            <span class="property-type">First name</span>
+                            <span id="contact-card-first-name" class="property-value-text">—</span>
+                        </div>
+                        <div class="property-row">
+                            <span class="property-type">Last name</span>
+                            <span id="contact-card-last-name" class="property-value-text">—</span>
+                        </div>
+                    </div>
+
+                    <!-- Notes Section -->
+                    <div class="contact-property-group">
+                        <div class="property-header">
+                            <span class="property-icon">📝</span>
+                            <span class="property-title">Заметки (Notes)</span>
+                        </div>
+                        <div class="property-notes-box">
+                            <div id="contact-card-notes" class="property-notes-text">Нет заметок</div>
+                        </div>
+                    </div>
+
+                    <!-- Federated Cloud ID Section -->
+                    <div class="contact-property-group">
+                        <div class="property-header">
+                            <span class="property-icon">☁️</span>
+                            <span class="property-title">Federated Cloud ID</span>
+                        </div>
+                        <div class="property-row">
+                            <span class="property-type">Nextcloud</span>
+                            <span id="contact-card-cloud-id" class="property-value-text">client@office.violatax.ca</span>
+                        </div>
+                    </div>
+
+                    <!-- Nextcloud Files Section -->
+                    <div class="contact-property-group">
+                        <div class="property-header">
+                            <span class="property-icon">📂</span>
+                            <span class="property-title">Документы клиента</span>
+                        </div>
+                        <div class="property-row">
+                            <a id="contact-card-folder-btn" href="#" target="_blank" class="button primary-outline button-action-full">
+                                📁 Открыть папку в Nextcloud Files
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Open in Contacts button -->
+                    <div class="contact-drawer-footer">
+                        <a id="contact-btn-open-app" href="#" target="_blank" class="button primary button-action-full">
+                            👥 Открыть в приложении Nextcloud Contacts
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-/* Header Tabs Switcher: contact, files, actions */
+/* Contact Drawer in Right Corner */
+function toggleContactDrawer() {
+    const drawer = document.getElementById('contact-drawer');
+    const btn = document.getElementById('tab-btn-contact');
+    if (!drawer) return;
+
+    const isHidden = (drawer.style.display === 'none' || !drawer.classList.contains('open'));
+
+    if (isHidden) {
+        drawer.style.display = 'flex';
+        void drawer.offsetWidth;
+        drawer.classList.add('open');
+        if (btn) btn.classList.add('active');
+    } else {
+        drawer.classList.remove('open');
+        if (btn) btn.classList.remove('active');
+        setTimeout(() => {
+            if (!drawer.classList.contains('open')) {
+                drawer.style.display = 'none';
+            }
+        }, 250);
+    }
+}
+
+function copyContactSummary(btnEl) {
+    const name = document.getElementById('contact-card-name')?.textContent || '';
+    const phone = document.getElementById('contact-card-phone')?.textContent || '';
+    const email = document.getElementById('contact-card-email')?.textContent || '';
+    const notes = document.getElementById('contact-card-notes')?.textContent || '';
+    const summary = `${name}\nТел: ${phone}\nEmail: ${email}\nЗаметки: ${notes}`;
+    navigator.clipboard.writeText(summary).then(() => {
+        const orig = btnEl.textContent;
+        btnEl.textContent = '✔️';
+        setTimeout(() => { btnEl.textContent = orig; }, 1500);
+    });
+}
+
+/* Header Tabs Switcher: files, actions */
 let currentActiveTab = null;
 
 function toggleHeaderTab(tabName) {
+    if (tabName === 'contact') {
+        toggleContactDrawer();
+        return;
+    }
+
     const panel = document.getElementById('header-tab-panel');
-    const panelContact = document.getElementById('panel-contact');
     const panelFiles = document.getElementById('panel-files');
     const panelActions = document.getElementById('panel-actions');
 
-    const btnContact = document.getElementById('tab-btn-contact');
     const btnFiles = document.getElementById('tab-btn-files');
     const btnActions = document.getElementById('tab-btn-actions');
-
-    const allButtons = [btnContact, btnFiles, btnActions];
-    const allPanels = { contact: panelContact, files: panelFiles, actions: panelActions };
 
     // If clicking on already open tab -> toggle collapse
     if (currentActiveTab === tabName) {
         panel.style.display = 'none';
-        allButtons.forEach(b => b && b.classList.remove('active'));
+        if (btnFiles) btnFiles.classList.remove('active');
+        if (btnActions) btnActions.classList.remove('active');
         currentActiveTab = null;
         return;
     }
@@ -188,19 +324,11 @@ function toggleHeaderTab(tabName) {
     currentActiveTab = tabName;
     panel.style.display = 'block';
 
-    allButtons.forEach(b => b && b.classList.remove('active'));
-    Object.values(allPanels).forEach(p => { if (p) p.style.display = 'none'; });
+    if (btnFiles) btnFiles.classList.toggle('active', tabName === 'files');
+    if (btnActions) btnActions.classList.toggle('active', tabName === 'actions');
 
-    if (tabName === 'contact') {
-        if (btnContact) btnContact.classList.add('active');
-        if (panelContact) panelContact.style.display = 'block';
-    } else if (tabName === 'files') {
-        if (btnFiles) btnFiles.classList.add('active');
-        if (panelFiles) panelFiles.style.display = 'block';
-    } else if (tabName === 'actions') {
-        if (btnActions) btnActions.classList.add('active');
-        if (panelActions) panelActions.style.display = 'block';
-    }
+    if (panelFiles) panelFiles.style.display = tabName === 'files' ? 'block' : 'none';
+    if (panelActions) panelActions.style.display = tabName === 'actions' ? 'block' : 'none';
 }
 
 function copyText(elementId, btnEl) {

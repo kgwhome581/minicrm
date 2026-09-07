@@ -212,6 +212,9 @@
                 }
             }
         }
+
+        // Update Right Corner Contact Card
+        updateContactCard(client, latestActivity);
     }
 
     function renderTimeline(messages) {
@@ -338,6 +341,7 @@
                 const clientInCache = clientsCache.find(c => c.id === currentClientId);
                 if (clientInCache) {
                     clientInCache.full_name = updated.full_name;
+                    updateContactCard(clientInCache);
                 }
                 const activeItem = document.querySelector(`.minicrm-client-item[data-client-id="${currentClientId}"] .client-item-name`);
                 if (activeItem) {
@@ -350,6 +354,91 @@
             console.error('Failed to update client name:', err);
             alert('Ошибка сети при обновлении имени');
         }
+    }
+
+    function updateContactCard(client, latestActivity) {
+        if (!client) return;
+
+        const cardNameEl = document.getElementById('contact-card-name');
+        if (cardNameEl) cardNameEl.textContent = client.full_name || 'Клиент';
+
+        // Avatar initials
+        const avatarEl = document.getElementById('contact-card-avatar');
+        if (avatarEl) {
+            avatarEl.textContent = getInitials(client.full_name || '');
+        }
+
+        // Detailed Name
+        const { first, last } = parseName(client.full_name || '');
+        const firstNameEl = document.getElementById('contact-card-first-name');
+        if (firstNameEl) firstNameEl.textContent = first;
+        const lastNameEl = document.getElementById('contact-card-last-name');
+        if (lastNameEl) lastNameEl.textContent = last;
+
+        // Email
+        const emailEl = document.getElementById('contact-card-email');
+        const actionEmailEl = document.getElementById('contact-action-email');
+        if (emailEl) {
+            emailEl.textContent = client.email || '—';
+            emailEl.href = client.email ? `mailto:${client.email}` : '#';
+        }
+        if (actionEmailEl) {
+            actionEmailEl.href = client.email ? `mailto:${client.email}` : '#';
+        }
+
+        // Phone
+        const phoneEl = document.getElementById('contact-card-phone');
+        const actionCallEl = document.getElementById('contact-action-call');
+        if (phoneEl) {
+            phoneEl.textContent = client.phone || '—';
+            phoneEl.href = client.phone ? `tel:${client.phone}` : '#';
+        }
+        if (actionCallEl) {
+            actionCallEl.href = client.phone ? `tel:${client.phone}` : '#';
+        }
+
+        // Notes
+        const notesEl = document.getElementById('contact-card-notes');
+        if (notesEl) {
+            notesEl.textContent = client.notes || 'Нет заметок';
+        }
+
+        // Cloud ID
+        const cloudIdEl = document.getElementById('contact-card-cloud-id');
+        if (cloudIdEl) {
+            const prefix = client.email ? client.email.split('@')[0] : `client_${client.id}`;
+            cloudIdEl.textContent = `${prefix}@office.violatax.ca`;
+        }
+
+        // Files folder link
+        const folderBtn = document.getElementById('contact-card-folder-btn');
+        const actionFiles = document.getElementById('contact-action-files');
+        if (client.folder_path) {
+            const folderUrl = OC.generateUrl(`/apps/files/?dir=${encodeURIComponent(client.folder_path)}`);
+            if (folderBtn) folderBtn.href = folderUrl;
+            if (actionFiles) actionFiles.href = folderUrl;
+        }
+
+        // Contacts App link
+        const contactsUrl = OC.generateUrl('/apps/contacts/');
+        const appLink = document.getElementById('contact-card-app-link');
+        const appBtn = document.getElementById('contact-btn-open-app');
+        if (appLink) appLink.href = contactsUrl;
+        if (appBtn) appBtn.href = contactsUrl;
+    }
+
+    function getInitials(name) {
+        if (!name) return '👤';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+
+    function parseName(fullName) {
+        if (!fullName) return { first: '—', last: '—' };
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length === 1) return { first: parts[0], last: '—' };
+        return { first: parts[0], last: parts.slice(1).join(' ') };
     }
 
     function escapeHtml(text) {

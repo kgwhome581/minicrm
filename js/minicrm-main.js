@@ -182,16 +182,34 @@
             dropEl.style.display = 'none';
         }
 
-        // Activity banner
+        // Notes
+        const notesEl = document.getElementById('detail-client-notes');
+        if (notesEl) {
+            notesEl.textContent = client.notes || 'Нет заметок';
+        }
+
+        // Activity details
         if (latestActivity) {
-            document.getElementById('detail-meeting-time').textContent = latestActivity.meeting_time ? new Date(latestActivity.meeting_time).toLocaleString() : 'Не назначена';
-            document.getElementById('detail-activity-status').textContent = latestActivity.status;
-            
+            const meetingTimeFormatted = latestActivity.meeting_time ? new Date(latestActivity.meeting_time).toLocaleString() : 'Не назначена';
+            const meetingEl = document.getElementById('detail-meeting-time');
+            if (meetingEl) meetingEl.textContent = meetingTimeFormatted;
+
+            const statusEl = document.getElementById('detail-activity-status');
+            if (statusEl) statusEl.textContent = latestActivity.status;
+
+            const headerStatusEl = document.getElementById('detail-activity-status-header');
+            if (headerStatusEl) headerStatusEl.textContent = latestActivity.status;
+
+            const sourceEl = document.getElementById('detail-activity-source');
+            if (sourceEl) sourceEl.textContent = latestActivity.source || 'Easypoint';
+
             const deckEl = document.getElementById('detail-deck-link');
-            if (latestActivity.deck_task_id) {
-                deckEl.innerHTML = `<a href="${OC.generateUrl('/apps/deck/#/card/' + latestActivity.deck_task_id)}" target="_blank">Открыть карточку #${latestActivity.deck_task_id}</a>`;
-            } else {
-                deckEl.textContent = '—';
+            if (deckEl) {
+                if (latestActivity.deck_task_id) {
+                    deckEl.innerHTML = `<a href="${OC.generateUrl('/apps/deck/#/card/' + latestActivity.deck_task_id)}" target="_blank" class="button primary button-action-full">🎯 Открыть карточку в Deck #${latestActivity.deck_task_id}</a>`;
+                } else {
+                    deckEl.textContent = 'Карточка не привязана';
+                }
             }
         }
     }

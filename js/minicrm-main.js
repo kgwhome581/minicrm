@@ -1023,19 +1023,27 @@
 
         const row = document.createElement('div');
         row.className = 'nc-edit-row nc-custom-field-row';
-        row.style.marginTop = '8px';
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '10px';
+        row.style.marginTop = '10px';
+        row.style.width = '100%';
         row.innerHTML = `
-            <div class="nc-edit-input-wrapper" style="width: 140px;">
+            <div class="nc-edit-input-wrapper" style="width: 150px; flex-shrink: 0;">
                 <label class="nc-floating-label">Field Name</label>
-                <input type="text" class="nc-styled-input nc-custom-key" placeholder="e.g. SIN" value="${escapeHtml(key)}" />
+                <input type="text" class="nc-styled-input nc-custom-key" placeholder="e.g. SIN / Tax ID" value="${escapeHtml(key)}" />
             </div>
             <div class="nc-edit-input-wrapper nc-flex-1">
                 <label class="nc-floating-label">Value</label>
-                <input type="text" class="nc-styled-input nc-custom-val" placeholder="Value" value="${escapeHtml(val)}" />
+                <input type="text" class="nc-styled-input nc-custom-val" placeholder="Field value" value="${escapeHtml(val)}" />
             </div>
             <button type="button" class="nc-btn-row-delete nc-btn-del-custom-field" title="Remove field">🗑️</button>
         `;
         container.appendChild(row);
+        const keyInput = row.querySelector('.nc-custom-key');
+        if (keyInput && !key) {
+            setTimeout(() => keyInput.focus(), 50);
+        }
     }
 
     function showContactViewMode() {
@@ -1125,6 +1133,16 @@
         const lastMod = contactCard.last_modified ? formatTimeAgo(contactCard.last_modified) : 'Last modified recently';
         const editLastModEl = document.getElementById('nc-edit-lastmod');
         if (editLastModEl) editLastModEl.textContent = lastMod;
+
+        const customContainer = document.getElementById('nc-custom-fields-container');
+        if (customContainer) {
+            customContainer.innerHTML = '';
+            if (contactCard.custom_fields && typeof contactCard.custom_fields === 'object') {
+                Object.entries(contactCard.custom_fields).forEach(([k, v]) => {
+                    addCustomFieldRow(k, String(v));
+                });
+            }
+        }
     }
 
     function populateContactWidget() {
@@ -1265,6 +1283,28 @@
 
         const lastModEl = document.getElementById('nc-view-lastmod');
         if (lastModEl) lastModEl.textContent = lastMod;
+
+        // Custom Dynamic Fields
+        const customViewContainer = document.getElementById('nc-view-custom-fields-container');
+        if (customViewContainer) {
+            customViewContainer.innerHTML = '';
+            if (contactCard.custom_fields && typeof contactCard.custom_fields === 'object') {
+                Object.entries(contactCard.custom_fields).forEach(([k, v]) => {
+                    const group = document.createElement('div');
+                    group.className = 'nc-field-group';
+                    group.innerHTML = `
+                        <div class="nc-field-heading">
+                            <span class="nc-field-icon">📌</span> ${escapeHtml(k)}
+                        </div>
+                        <div class="nc-field-row">
+                            <span class="nc-field-label">${escapeHtml(k)}</span>
+                            <span class="nc-field-text">${escapeHtml(String(v || '—'))}</span>
+                        </div>
+                    `;
+                    customViewContainer.appendChild(group);
+                });
+            }
+        }
     }
 
     async function handleSaveContact() {
@@ -1287,6 +1327,16 @@
         const address = document.getElementById('nc-input-address')?.value.trim() || '';
         const notes = document.getElementById('nc-input-notes')?.value;
 
+        const customFields = {};
+        const customRows = document.querySelectorAll('#nc-custom-fields-container .nc-custom-field-row');
+        customRows.forEach(row => {
+            const key = row.querySelector('.nc-custom-key')?.value.trim();
+            const val = row.querySelector('.nc-custom-val')?.value.trim() || '';
+            if (key) {
+                customFields[key] = val;
+            }
+        });
+
         try {
             const res = await fetch(`${apiBase}/clients/${currentClientId}`, {
                 method: 'POST',
@@ -1303,7 +1353,8 @@
                     phone: phone,
                     website: website,
                     address: address,
-                    notes: notes
+                    notes: notes,
+                    custom_fields: customFields
                 })
             });
 
@@ -1329,6 +1380,7 @@
                 currentClientData.contact_card.website = website;
                 currentClientData.contact_card.address = address;
                 currentClientData.contact_card.notes = notes;
+                currentClientData.contact_card.custom_fields = customFields;
                 currentClientData.contact_card.last_modified = Math.floor(Date.now() / 1000);
             }
 

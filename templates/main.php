@@ -240,6 +240,9 @@ declare(strict_types=1);
                                             </div>
                                         </div>
 
+                                        <!-- Custom Dynamic Fields Container -->
+                                        <div id="nc-view-custom-fields-container"></div>
+
                                         <!-- Notes Group -->
                                         <div class="nc-field-group" id="nc-view-group-notes">
                                             <div class="nc-field-heading">

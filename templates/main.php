@@ -467,11 +467,39 @@ style('minicrm', 'minicrm-style');
                                     <!-- Dynamic Custom Fields Container -->
                                     <div id="nc-custom-fields-container" class="nc-edit-group"></div>
 
-                                    <!-- Add More Info Button -->
+                                    <!-- Add More Info Button & Nextcloud Contacts "More fields" Dropdown Menu -->
                                     <div class="nc-add-more-wrap">
                                         <button type="button" id="nc-btn-add-more-info" class="button button-small nc-btn-add-info">
                                             + Add more info
                                         </button>
+                                        <div id="nc-add-more-menu" class="nc-add-more-menu" style="display: none;">
+                                            <div class="nc-menu-header"><span class="nc-menu-header-arrow">‹</span> More fields</div>
+                                            <div class="nc-menu-scroll-area">
+                                                <div class="nc-menu-item" data-field-key="Birthday"><span class="nc-menu-icon">🎂</span> Birthday</div>
+                                                <div class="nc-menu-item" data-field-key="Organization"><span class="nc-menu-icon">🏢</span> Organization</div>
+                                                <div class="nc-menu-item" data-field-key="Job Title"><span class="nc-menu-icon">💼</span> Job Title</div>
+                                                <div class="nc-menu-item" data-field-key="SIN / Tax ID"><span class="nc-menu-icon">🆔</span> SIN / Tax ID</div>
+                                                <div class="nc-menu-item" data-field-key="Spouse"><span class="nc-menu-icon">👨‍👩‍👧</span> Spouse / Family</div>
+                                                <div class="nc-menu-item" data-field-key="Anniversary"><span class="nc-menu-icon">📅</span> Anniversary</div>
+                                                <div class="nc-menu-item" data-field-key="Date of death"><span class="nc-menu-icon">⚰️</span> Date of death</div>
+                                                <div class="nc-menu-item" data-field-key="Detailed name"><span class="nc-menu-icon">📇</span> Detailed name</div>
+                                                <div class="nc-menu-item" data-field-key="Federated Cloud ID"><span class="nc-menu-icon">☁️</span> Federated Cloud ID</div>
+                                                <div class="nc-menu-item" data-field-key="Gender"><span class="nc-menu-icon">👤</span> Gender</div>
+                                                <div class="nc-menu-item" data-field-key="Instant messaging"><span class="nc-menu-icon">💬</span> Instant messaging</div>
+                                                <div class="nc-menu-item" data-field-key="Location"><span class="nc-menu-icon">🗺️</span> Location</div>
+                                                <div class="nc-menu-item" data-field-key="Nickname"><span class="nc-menu-icon">🏷️</span> Nickname</div>
+                                                <div class="nc-menu-item" data-field-key="Phonetic first name"><span class="nc-menu-icon">📇</span> Phonetic first name</div>
+                                                <div class="nc-menu-item" data-field-key="Phonetic last name"><span class="nc-menu-icon">📇</span> Phonetic last name</div>
+                                                <div class="nc-menu-item" data-field-key="Place of birth"><span class="nc-menu-icon">🗺️</span> Place of birth</div>
+                                                <div class="nc-menu-item" data-field-key="Place of death"><span class="nc-menu-icon">🗺️</span> Place of death</div>
+                                                <div class="nc-menu-item" data-field-key="Related contacts"><span class="nc-menu-icon">📇</span> Related contacts</div>
+                                                <div class="nc-menu-item" data-field-key="Relationship to you"><span class="nc-menu-icon">👥</span> Relationship to you</div>
+                                                <div class="nc-menu-item" data-field-key="Spoken languages"><span class="nc-menu-icon">🗣️</span> Spoken languages</div>
+                                                <div class="nc-menu-item" data-field-key="Time zone"><span class="nc-menu-icon">🌐</span> Time zone</div>
+                                                <div class="nc-menu-divider"></div>
+                                                <div class="nc-menu-item" data-field-key=""><span class="nc-menu-icon">➕</span> Custom Field...</div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div class="nc-contact-lastmod" id="nc-edit-lastmod">Last modified recently</div>

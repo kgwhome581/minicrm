@@ -164,17 +164,7 @@ style('minicrm', 'minicrm-style');
                                     <div class="nc-contact-title-group">
                                         <div class="nc-contact-name-row">
                                             <h1 id="nc-view-fullname" class="nc-contact-fullname">Клиент</h1>
-                                            <div class="nc-contact-header-actions">
-                                                <button type="button" id="nc-btn-trigger-edit" class="nc-btn-action" title="Редактировать контакт">
-                                                    ✏️ Edit
-                                                </button>
-                                                <a id="nc-btn-open-contacts-app" href="#" target="_blank" class="nc-btn-action nc-btn-contacts-link" title="Открыть карточку в модуле Nextcloud Contacts">
-                                                    ↗️ Open in Contacts
-                                                </a>
-                                                <button type="button" id="nc-btn-sync-carddav" class="nc-btn-action" title="Синхронизировать с CardDAV">
-                                                    🔄 Sync CardDAV
-                                                </button>
-                                            </div>
+
                                         </div>
 
                                     </div>
@@ -271,6 +261,19 @@ style('minicrm', 'minicrm-style');
                                                     <span class="nc-tag-badge">Clients</span>
                                                 </div>
                                             </div>
+                                        </div>
+
+                                        <!-- Contact Action Buttons -->
+                                        <div class="nc-contact-header-actions" style="margin-top: 16px; margin-bottom: 8px; display: flex; gap: 10px; flex-wrap: wrap;">
+                                            <button type="button" id="nc-btn-trigger-edit" class="nc-btn-action" title="Редактировать контакт">
+                                                ✏️ Edit
+                                            </button>
+                                            <a id="nc-btn-open-contacts-app" href="#" target="_blank" class="nc-btn-action nc-btn-contacts-link" title="Открыть карточку в модуле Nextcloud Contacts">
+                                                ↗️ Open in Contacts
+                                            </a>
+                                            <button type="button" id="nc-btn-sync-carddav" class="nc-btn-action" title="Синхронизировать с CardDAV">
+                                                🔄 Sync CardDAV
+                                            </button>
                                         </div>
 
                                         <!-- Dynamic Custom Fields Container (View Mode) -->

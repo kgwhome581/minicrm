@@ -169,9 +169,6 @@ declare(strict_types=1);
                                                 <button type="button" id="nc-btn-trigger-edit" class="nc-btn-action" title="Редактировать контакт">
                                                     <span class="nc-action-icon">✏️</span> Edit
                                                 </button>
-                                                <button type="button" id="nc-btn-view-menu" class="nc-btn-action nc-btn-icon-only" title="Дополнительные действия">
-                                                    •••
-                                                </button>
                                             </div>
                                         </div>
                                         <div class="nc-contact-quick-row">
@@ -325,7 +322,6 @@ declare(strict_types=1);
                                             <button type="button" id="nc-btn-cancel-contact" class="button nc-btn-cancel">
                                                 Cancel
                                             </button>
-                                            <button type="button" class="nc-btn-action nc-btn-icon-only">•••</button>
                                         </div>
                                     </div>
                                 </div>

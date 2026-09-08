@@ -257,11 +257,31 @@
                 return;
             }
 
-            // Contact Widget: Add Dynamic Custom Field Row
+            // Contact Widget: Toggle "Add more info" Context Menu
             if (e.target.closest('#nc-btn-add-more-info')) {
                 e.preventDefault();
-                addCustomFieldRow();
+                const menu = document.getElementById('nc-add-more-menu');
+                if (menu) {
+                    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+                }
                 return;
+            }
+
+            // Contact Widget: Click item inside "Add more info" Context Menu
+            const menuItem = e.target.closest('.nc-menu-item');
+            if (menuItem) {
+                e.preventDefault();
+                const key = menuItem.dataset.fieldKey || '';
+                addCustomFieldRow(key, '');
+                const menu = document.getElementById('nc-add-more-menu');
+                if (menu) menu.style.display = 'none';
+                return;
+            }
+
+            // Close context menu on outside click
+            const addMoreMenu = document.getElementById('nc-add-more-menu');
+            if (addMoreMenu && addMoreMenu.style.display === 'block' && !e.target.closest('.nc-add-more-wrap')) {
+                addMoreMenu.style.display = 'none';
             }
 
             // Contact Widget: Delete Dynamic Custom Field Row
@@ -1304,6 +1324,52 @@
                     customViewContainer.appendChild(group);
                 });
             }
+        }
+    }
+
+    function addCustomFieldRow(key = '', val = '') {
+        const container = document.getElementById('nc-custom-fields-container');
+        if (!container) return;
+
+        const row = document.createElement('div');
+        row.className = 'nc-edit-row nc-custom-field-row';
+        row.style.cssText = 'display: flex !important; align-items: center !important; gap: 8px !important; width: 100% !important; margin-bottom: 8px !important;';
+
+        const keyWrapper = document.createElement('div');
+        keyWrapper.className = 'nc-edit-input-wrapper';
+        keyWrapper.style.cssText = 'width: 140px !important; flex-shrink: 0 !important;';
+        keyWrapper.innerHTML = `
+            <label class="nc-floating-label">Field Name</label>
+            <input type="text" class="nc-styled-input nc-custom-key" placeholder="e.g. SIN" value="${escapeHtml(key)}" />
+        `;
+
+        const valWrapper = document.createElement('div');
+        valWrapper.className = 'nc-edit-input-wrapper nc-flex-1';
+        valWrapper.style.cssText = 'flex: 1 1 auto !important; width: 100% !important; min-width: 0 !important;';
+        valWrapper.innerHTML = `
+            <label class="nc-floating-label">Value</label>
+            <input type="text" class="nc-styled-input nc-custom-val" placeholder="Value" value="${escapeHtml(val)}" />
+        `;
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'nc-btn-row-delete nc-btn-del-custom-field';
+        delBtn.title = 'Remove field';
+        delBtn.innerHTML = '🗑️';
+
+        row.appendChild(keyWrapper);
+        row.appendChild(valWrapper);
+        row.appendChild(delBtn);
+
+        container.appendChild(row);
+
+        const keyInput = keyWrapper.querySelector('input');
+        const valInput = valWrapper.querySelector('input');
+
+        if (key && valInput) {
+            valInput.focus();
+        } else if (keyInput) {
+            keyInput.focus();
         }
     }
 

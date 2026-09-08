@@ -470,7 +470,7 @@ style('minicrm', 'minicrm-style');
                                     <!-- Add More Info Button -->
                                     <div class="nc-add-more-wrap">
                                         <button type="button" id="nc-btn-add-more-info" class="button button-small nc-btn-add-info">
-                                            + Add dynamic field
+                                            + Add more info
                                         </button>
                                     </div>
 
@@ -685,3 +685,4 @@ style('minicrm', 'minicrm-style');
         </div>
     </div>
 </div>
+

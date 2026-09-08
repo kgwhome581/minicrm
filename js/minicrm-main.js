@@ -310,11 +310,12 @@
                 return;
             }
 
-            // 7. Client Name Edit button
+            // 7. Client Edit button (opens Contact Edit mode)
             const editBtn = e.target.closest('#btn-edit-client-name');
             if (editBtn) {
                 e.preventDefault();
-                openClientNameEditor();
+                switchWidget('contact');
+                showContactEditMode();
                 return;
             }
 

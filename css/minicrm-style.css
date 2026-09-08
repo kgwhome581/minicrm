@@ -1260,7 +1260,7 @@
 
 .nc-contact-props-col {
     flex: 1;
-    max-width: 520px;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
     gap: 20px;

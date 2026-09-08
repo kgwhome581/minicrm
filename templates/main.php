@@ -298,143 +298,40 @@ declare(strict_types=1);
                         </div>
                     </div>
 
-                    <!-- WIDGET: In-App Contact Card & vCard Editor -->
+                    <!-- WIDGET: Nextcloud Contacts In-App Embedded View -->
                     <div id="widget-panel-contact" class="minicrm-widget-view active">
                         <div class="widget-contact-container">
-                            <!-- Contact Widget Header -->
-                            <div class="contact-widget-header">
-                                <div class="contact-header-avatar" id="contact-widget-avatar">👤</div>
-                                <div class="contact-header-info">
-                                    <h2 id="contact-widget-fullname">Иван Петров</h2>
-                                    <div class="contact-sync-status-row">
+                            <!-- Contact Widget Header / Toolbar -->
+                            <div class="contact-widget-topbar">
+                                <div class="contact-topbar-left">
+                                    <span class="contact-topbar-icon">📇</span>
+                                    <div class="contact-topbar-titles">
+                                        <h3 id="contact-topbar-title">Nextcloud Contacts: <span id="contact-widget-fullname">—</span></h3>
                                         <span id="contact-sync-badge" class="sync-badge-ok">🟢 CardDAV Синхронизировано</span>
-                                        <button type="button" id="btn-widget-sync-contact" class="btn-text-action">
-                                            🔄 Синхронизировать
-                                        </button>
                                     </div>
                                 </div>
-                                <div class="contact-header-action-save">
-                                    <button type="button" id="btn-widget-save-contact" class="button primary">
-                                        💾 Сохранить изменения
+                                <div class="contact-topbar-actions">
+                                    <button type="button" id="btn-refresh-contact-iframe" class="button button-small" title="Перезагрузить карточку контакта">
+                                        🔄 Обновить
                                     </button>
+                                    <a id="link-external-nc-contact" href="#" target="_blank" class="button button-small" title="Открыть в отдельной вкладке Nextcloud Contacts">
+                                        ↗️ В новой вкладке
+                                    </a>
                                 </div>
                             </div>
 
-                            <!-- 2-Column Contact Form -->
-                            <form id="contact-widget-form" class="contact-form-grid" onsubmit="return false;">
-                                <!-- Left Column: Personal & Identity Details -->
-                                <div class="contact-form-section">
-                                    <h4 class="form-section-title">👤 Основные данные клиента</h4>
-
-                                    <div class="form-group">
-                                        <label for="contact-input-fullname">Полное имя (Full Name):</label>
-                                        <input type="text" id="contact-input-fullname" placeholder="Имя и Фамилия" />
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="contact-input-phone">Основной телефон (Phone):</label>
-                                        <div class="input-with-actions">
-                                            <input type="tel" id="contact-input-phone" placeholder="+1403..." />
-                                            <a id="contact-link-call-phone" href="#" class="btn-input-action" title="Позвонить">📞</a>
-                                            <button type="button" id="btn-copy-widget-phone" class="btn-input-action" title="Скопировать">📋</button>
-                                        </div>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="contact-input-email">Электронная почта (Email):</label>
-                                        <div class="input-with-actions">
-                                            <input type="email" id="contact-input-email" placeholder="client@example.com" />
-                                            <a id="contact-link-mail-email" href="#" class="btn-input-action" title="Написать email">✉️</a>
-                                            <button type="button" id="btn-copy-widget-email" class="btn-input-action" title="Скопировать">📋</button>
-                                        </div>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="contact-input-sin">SIN (Social Insurance Number):</label>
-                                        <div class="input-with-actions">
-                                            <input type="password" id="contact-input-sin" value="841928412" placeholder="***-***-***" />
-                                            <button type="button" id="btn-toggle-widget-sin" class="btn-input-action" title="Показать/скрыть SIN">👁️</button>
-                                        </div>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="contact-select-marital">Семейный статус (Marital Status):</label>
-                                        <select id="contact-select-marital">
-                                            <option value="single">Single (Холост / Не замужем)</option>
-                                            <option value="married">Married (В браке)</option>
-                                            <option value="common-law">Common-Law (Фактический брак)</option>
-                                            <option value="separated">Separated (Раздельное проживание)</option>
-                                            <option value="divorced">Divorced (В разводе)</option>
-                                            <option value="widowed">Widowed (Вдовец / Вдова)</option>
-                                        </select>
-                                    </div>
+                            <!-- Embedded Nextcloud Contacts Iframe View -->
+                            <div class="contact-iframe-wrapper">
+                                <iframe id="contact-app-iframe" class="contact-embedded-frame" src="about:blank" frameborder="0"></iframe>
+                                <div id="contact-iframe-placeholder" class="contact-iframe-placeholder" style="display: none;">
+                                    <div class="empty-icon">👤</div>
+                                    <h3>Контакт в Nextcloud Contacts ещё не создан</h3>
+                                    <p>Нажмите кнопку ниже для автоматического создания и открытия карточки контакта в Nextcloud Contacts.</p>
+                                    <button type="button" id="btn-widget-sync-contact" class="button primary">
+                                        🔄 Создать контакт в Nextcloud Contacts
+                                    </button>
                                 </div>
-
-                                <!-- Right Column: Canadian CRA Tax Address -->
-                                <div class="contact-form-section">
-                                    <h4 class="form-section-title">🇨🇦 Канадский налоговый адрес (CRA Address)</h4>
-
-                                    <div class="form-group">
-                                        <label for="contact-input-street">Улица и номер дома (Street Address):</label>
-                                        <input type="text" id="contact-input-street" placeholder="e.g. Keystone Grove West" />
-                                    </div>
-
-                                    <div class="form-row-2">
-                                        <div class="form-group">
-                                            <label for="contact-input-apt">Кв. / Unit / Apt:</label>
-                                            <input type="text" id="contact-input-apt" placeholder="Apt 12B" />
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="contact-input-city">Город (City):</label>
-                                            <input type="text" id="contact-input-city" placeholder="Lethbridge" />
-                                        </div>
-                                    </div>
-
-                                    <div class="form-row-2">
-                                        <div class="form-group">
-                                            <label for="contact-select-province">Провинция (Province):</label>
-                                            <select id="contact-select-province">
-                                                <option value="AB">Alberta (AB)</option>
-                                                <option value="BC">British Columbia (BC)</option>
-                                                <option value="MB">Manitoba (MB)</option>
-                                                <option value="NB">New Brunswick (NB)</option>
-                                                <option value="NL">Newfoundland and Labrador (NL)</option>
-                                                <option value="NT">Northwest Territories (NT)</option>
-                                                <option value="NS">Nova Scotia (NS)</option>
-                                                <option value="NU">Nunavut (NU)</option>
-                                                <option value="ON">Ontario (ON)</option>
-                                                <option value="PE">Prince Edward Island (PE)</option>
-                                                <option value="QC">Quebec (QC)</option>
-                                                <option value="SK">Saskatchewan (SK)</option>
-                                                <option value="YT">Yukon (YT)</option>
-                                            </select>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="contact-input-postal">Почтовый индекс (Postal Code):</label>
-                                            <input type="text" id="contact-input-postal" placeholder="T1J 5E2" maxlength="7" />
-                                        </div>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="contact-input-country">Страна (Country):</label>
-                                        <input type="text" id="contact-input-country" value="Canada" readonly />
-                                    </div>
-                                </div>
-
-                                <!-- Full Width: Notes & Tax Details -->
-                                <div class="contact-form-section full-width">
-                                    <h4 class="form-section-title">📝 Заметки бухгалтера и детали декларации</h4>
-                                    <div class="form-group">
-                                        <textarea id="contact-textarea-notes" rows="4" placeholder="Заметки по декларации (иждивенцы, медицинские вычеты, RRSP, CRA NOA и т.д.)..."></textarea>
-                                    </div>
-                                    <div class="contact-form-footer-bar">
-                                        <span id="contact-save-feedback" class="save-feedback-text"></span>
-                                        <button type="button" id="btn-widget-save-contact-bottom" class="button primary">
-                                            💾 Сохранить контакт в Nextcloud
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
+                            </div>
                         </div>
                     </div>
 

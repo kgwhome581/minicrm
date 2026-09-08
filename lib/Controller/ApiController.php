@@ -406,15 +406,28 @@ class ApiController extends BaseApiController {
             $client = $this->clientMapper->find($id);
             $activities = $this->activityMapper->findByClientId($id);
             $identities = $this->identityMapper->findByClientId($id);
-            $contactCard = $this->contactBridge
-                ? $this->contactBridge->getContactInfo(
+            if ($this->contactBridge) {
+                $contactCard = $this->contactBridge->getContactInfo(
                     $client->getUuid(),
                     $client->getEmail(),
                     $client->getPhone(),
                     $client->getFullName(),
                     $client->getNotes()
-                )
-                : ['exists' => false, 'app_url' => null, 'address' => null];
+                );
+                if (empty($contactCard['exists']) || empty($contactCard['app_url'])) {
+                    $responsibleUser = (!empty($activities) && !empty($activities[0]->getResponsibleUser()))
+                        ? $activities[0]->getResponsibleUser()
+                        : 'admin';
+                    $folderUrl = $client->getFolderPath() ? '/apps/files/?dir=' . urlencode($client->getFolderPath()) : null;
+                    $synced = $this->contactBridge->syncContact($responsibleUser, $client, $folderUrl);
+                    if ($synced && !empty($synced['app_url'])) {
+                        $contactCard['exists'] = true;
+                        $contactCard['app_url'] = $synced['app_url'];
+                    }
+                }
+            } else {
+                $contactCard = ['exists' => false, 'app_url' => null, 'address' => null];
+            }
 
             return new DataResponse([
                 'client' => $client->jsonSerialize(),

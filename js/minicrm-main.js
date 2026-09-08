@@ -95,6 +95,9 @@
             });
         }
 
+        // Setup embedded Nextcloud Contacts iframe load listener
+        setupContactIframeListener();
+
         // Global click listener with event delegation - ensures 100% reliable button clicks
         document.addEventListener('click', (e) => {
             // 1. Header action buttons (Contact, Files, Deck)
@@ -149,10 +152,13 @@
                 return;
             }
 
-            // Save contact widget buttons
-            if (e.target.closest('#btn-widget-save-contact') || e.target.closest('#btn-widget-save-contact-bottom')) {
+            // Refresh embedded Nextcloud Contacts iframe
+            if (e.target.closest('#btn-refresh-contact-iframe')) {
                 e.preventDefault();
-                handleSaveContactWidget();
+                const iframe = document.getElementById('contact-app-iframe');
+                if (iframe && iframe.dataset.currentSrc) {
+                    iframe.src = iframe.dataset.currentSrc;
+                }
                 return;
             }
 
@@ -161,43 +167,6 @@
             if (widgetSyncBtn) {
                 e.preventDefault();
                 handleSyncContact(widgetSyncBtn);
-                return;
-            }
-
-            // Toggle SIN in contact widget
-            if (e.target.closest('#btn-toggle-widget-sin')) {
-                e.preventDefault();
-                toggleWidgetSinVisibility();
-                return;
-            }
-
-            // Copy phone in contact widget
-            const copyWidgetPhone = e.target.closest('#btn-copy-widget-phone');
-            if (copyWidgetPhone) {
-                e.preventDefault();
-                const phoneInput = document.getElementById('contact-input-phone');
-                if (phoneInput && phoneInput.value) {
-                    navigator.clipboard.writeText(phoneInput.value).then(() => {
-                        const orig = copyWidgetPhone.textContent;
-                        copyWidgetPhone.textContent = '✔️';
-                        setTimeout(() => { copyWidgetPhone.textContent = orig; }, 1500);
-                    });
-                }
-                return;
-            }
-
-            // Copy email in contact widget
-            const copyWidgetEmail = e.target.closest('#btn-copy-widget-email');
-            if (copyWidgetEmail) {
-                e.preventDefault();
-                const emailInput = document.getElementById('contact-input-email');
-                if (emailInput && emailInput.value) {
-                    navigator.clipboard.writeText(emailInput.value).then(() => {
-                        const orig = copyWidgetEmail.textContent;
-                        copyWidgetEmail.textContent = '✔️';
-                        setTimeout(() => { copyWidgetEmail.textContent = orig; }, 1500);
-                    });
-                }
                 return;
             }
 
@@ -638,6 +607,7 @@
                         ...result.contact
                     };
                 }
+                populateContactWidget();
                 const contactLinkEl = document.getElementById('modal-contact-app-link') || document.getElementById('detail-contact-app-link');
                 if (contactLinkEl) {
                     contactLinkEl.href = OC.generateUrl(result.contact.app_url);
@@ -957,158 +927,96 @@
         }
     }
 
+    function setupContactIframeListener() {
+        const iframe = document.getElementById('contact-app-iframe');
+        if (!iframe || iframe.dataset.listenerAttached) return;
+        iframe.dataset.listenerAttached = 'true';
+
+        iframe.addEventListener('load', () => {
+            try {
+                const doc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (!doc) return;
+
+                // Inject CSS inside the embedded iframe to hide top header, navigation, and maximize contact card view
+                const styleId = 'minicrm-iframe-cleaner-style';
+                if (!doc.getElementById(styleId)) {
+                    const style = doc.createElement('style');
+                    style.id = styleId;
+                    style.textContent = `
+                        #header, header#header, .header-menu, #skip-navigation, .skip-navigation {
+                            display: none !important;
+                        }
+                        #content, #content-vue, .app-contacts, #app-content {
+                            top: 0 !important;
+                            margin-top: 0 !important;
+                            padding-top: 0 !important;
+                            height: 100vh !important;
+                        }
+                        body {
+                            padding-top: 0 !important;
+                        }
+                    `;
+                    (doc.head || doc.body).appendChild(style);
+                }
+            } catch (e) {
+                console.debug('Could not style iframe content (cross-origin or blocked):', e);
+            }
+        });
+    }
+
     function populateContactWidget() {
         if (!currentClientData || !currentClientData.client) return;
         const client = currentClientData.client;
         const contactCard = currentClientData.contact_card || {};
 
         const fnHeader = document.getElementById('contact-widget-fullname');
-        const avHeader = document.getElementById('contact-widget-avatar');
         const syncBadge = document.getElementById('contact-sync-badge');
+        const iframe = document.getElementById('contact-app-iframe');
+        const placeholder = document.getElementById('contact-iframe-placeholder');
+        const extLink = document.getElementById('link-external-nc-contact');
 
         if (fnHeader) fnHeader.textContent = client.full_name || 'Клиент';
-        if (avHeader) avHeader.textContent = getInitials(client.full_name);
 
-        if (syncBadge) {
-            if (contactCard.exists) {
+        const appUrl = contactCard.app_url;
+
+        if (appUrl) {
+            const fullAppUrl = OC.generateUrl(appUrl);
+            if (syncBadge) {
                 syncBadge.className = 'sync-badge-ok';
                 syncBadge.textContent = '🟢 CardDAV Синхронизировано';
-            } else {
+            }
+            if (extLink) {
+                extLink.href = fullAppUrl;
+                extLink.style.display = 'inline-flex';
+            }
+            if (placeholder) {
+                placeholder.style.display = 'none';
+            }
+            if (iframe) {
+                iframe.style.display = 'block';
+                if (iframe.dataset.currentSrc !== fullAppUrl) {
+                    iframe.dataset.currentSrc = fullAppUrl;
+                    iframe.src = fullAppUrl;
+                }
+            }
+        } else {
+            if (syncBadge) {
                 syncBadge.className = 'sync-badge-warn';
-                syncBadge.textContent = '🟡 Требуется синхронизация';
+                syncBadge.textContent = '🟡 Не синхронизировано';
+            }
+            if (extLink) {
+                extLink.href = '#';
+                extLink.style.display = 'none';
+            }
+            if (iframe) {
+                iframe.style.display = 'none';
+                iframe.dataset.currentSrc = '';
+                iframe.src = 'about:blank';
+            }
+            if (placeholder) {
+                placeholder.style.display = 'flex';
             }
         }
-
-        const inputFn = document.getElementById('contact-input-fullname');
-        if (inputFn) inputFn.value = client.full_name || '';
-
-        const phone = client.phone || client.phone_raw || contactCard.phone || '';
-        const inputPhone = document.getElementById('contact-input-phone');
-        const callLink = document.getElementById('contact-link-call-phone');
-        if (inputPhone) inputPhone.value = phone;
-        if (callLink) callLink.href = phone ? `tel:${phone}` : '#';
-
-        const email = client.email || contactCard.email || '';
-        const inputEmail = document.getElementById('contact-input-email');
-        const mailLink = document.getElementById('contact-link-mail-email');
-        if (inputEmail) inputEmail.value = email;
-        if (mailLink) mailLink.href = email ? `mailto:${email}` : '#';
-
-        // SIN
-        const notes = client.notes || '';
-        const sinMatch = notes.match(/SIN:\s*([^\r\n]+)/i);
-        const inputSin = document.getElementById('contact-input-sin');
-        if (inputSin) inputSin.value = sinMatch ? sinMatch[1].trim() : '841928412';
-
-        // Canadian Address parsing
-        let street = '', apt = '', city = 'Lethbridge', province = 'AB', postalCode = 'T1J 5E2';
-        const addrMatch = notes.match(/(?:Адрес|Address):\s*([^\r\n]+)/iu);
-        const fullAddr = addrMatch ? addrMatch[1].trim() : (contactCard.address || '');
-
-        if (fullAddr) {
-            const parts = fullAddr.split(',').map(s => s.trim());
-            if (parts.length >= 1) street = parts[0];
-            if (parts.length >= 2) city = parts[1];
-            if (parts.length >= 3) {
-                const provCandidate = parts[2].trim().toUpperCase();
-                ['AB', 'BC', 'ON', 'MB', 'SK', 'QC', 'NB', 'NS', 'PE', 'NL', 'YT', 'NT', 'NU'].forEach(p => {
-                    if (provCandidate.includes(p)) province = p;
-                });
-            }
-            if (parts.length >= 4) postalCode = parts[3];
-        }
-
-        const inStreet = document.getElementById('contact-input-street');
-        const inApt = document.getElementById('contact-input-apt');
-        const inCity = document.getElementById('contact-input-city');
-        const selProv = document.getElementById('contact-select-province');
-        const inPostal = document.getElementById('contact-input-postal');
-
-        if (inStreet) inStreet.value = street;
-        if (inApt) inApt.value = apt;
-        if (inCity) inCity.value = city;
-        if (selProv) selProv.value = province;
-        if (inPostal) inPostal.value = postalCode;
-
-        const inNotes = document.getElementById('contact-textarea-notes');
-        if (inNotes) inNotes.value = notes;
-    }
-
-    async function handleSaveContactWidget() {
-        if (!currentClientId) return;
-
-        const btnTop = document.getElementById('btn-widget-save-contact');
-        const btnBottom = document.getElementById('btn-widget-save-contact-bottom');
-        const feedback = document.getElementById('contact-save-feedback');
-
-        if (btnTop) { btnTop.disabled = true; btnTop.textContent = '⏳ Сохранение...'; }
-        if (btnBottom) { btnBottom.disabled = true; btnBottom.textContent = '⏳ Сохранение...'; }
-        if (feedback) feedback.textContent = '';
-
-        const fullName = document.getElementById('contact-input-fullname')?.value.trim() || '';
-        const phone = document.getElementById('contact-input-phone')?.value.trim() || '';
-        const email = document.getElementById('contact-input-email')?.value.trim() || '';
-        const street = document.getElementById('contact-input-street')?.value.trim() || '';
-        const apt = document.getElementById('contact-input-apt')?.value.trim() || '';
-        const city = document.getElementById('contact-input-city')?.value.trim() || '';
-        const province = document.getElementById('contact-select-province')?.value || 'AB';
-        const postalCode = document.getElementById('contact-input-postal')?.value.trim() || '';
-        const country = document.getElementById('contact-input-country')?.value.trim() || 'Canada';
-        const notes = document.getElementById('contact-textarea-notes')?.value || '';
-
-        const fullStreet = apt ? `${street}, ${apt}` : street;
-
-        try {
-            const res = await fetch(`${apiBase}/clients/${currentClientId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'requesttoken': OC.requestToken
-                },
-                body: JSON.stringify({
-                    full_name: fullName,
-                    phone: phone,
-                    email: email,
-                    street: fullStreet,
-                    city: city,
-                    province: province,
-                    postal_code: postalCode,
-                    country: country,
-                    notes: notes
-                })
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                if (data.client) {
-                    currentClientData.client = data.client;
-                }
-                if (data.contact_card) {
-                    currentClientData.contact_card = data.contact_card;
-                }
-
-                renderClientDetail(currentClientData);
-                populateContactWidget();
-
-                if (feedback) feedback.textContent = '✔️ Контакт сохранён и синхронизирован с Contacts!';
-                setTimeout(() => { if (feedback) feedback.textContent = ''; }, 4000);
-            } else {
-                alert('Не удалось сохранить контакт');
-            }
-        } catch (err) {
-            console.error('Error saving contact:', err);
-            alert('Сетевая ошибка при сохранении контакта');
-        } finally {
-            if (btnTop) { btnTop.disabled = false; btnTop.textContent = '💾 Сохранить изменения'; }
-            if (btnBottom) { btnBottom.disabled = false; btnBottom.textContent = '💾 Сохранить контакт в Nextcloud'; }
-        }
-    }
-
-    function toggleWidgetSinVisibility() {
-        const sinInput = document.getElementById('contact-input-sin');
-        if (!sinInput) return;
-        widgetSinRevealed = !widgetSinRevealed;
-        sinInput.type = widgetSinRevealed ? 'text' : 'password';
     }
 
     function populateActionsWidget() {

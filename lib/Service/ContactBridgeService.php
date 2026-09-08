@@ -198,13 +198,15 @@ class ContactBridgeService {
                 ->where($syncQb->expr()->eq('id', $syncQb->createNamedParameter($addressbookId)))
                 ->executeStatement();
 
-            $encodedUri = rtrim(strtr(base64_encode($vcfFileName), '+/', '-_'), '=');
-            $appUrl = '/apps/contacts/All%20contacts/' . $encodedUri;
+            $addressbookUri = (string)($addressbook['uri'] ?? 'contacts');
+            $encodedContactId = base64_encode($contactUid . '~' . $addressbookUri);
+            $appUrl = '/apps/contacts/All%20contacts/' . $encodedContactId;
 
             return [
                 'success' => true,
                 'uid' => $contactUid,
                 'uri' => $vcfFileName,
+                'addressbook' => $addressbookUri,
                 'app_url' => $appUrl,
             ];
         } catch (\Exception $e) {
@@ -270,13 +272,39 @@ class ContactBridgeService {
             }
 
             if ($card !== null && !empty($card['uri'])) {
-                $encodedUri = rtrim(strtr(base64_encode((string)$card['uri']), '+/', '-_'), '=');
+                $addressbookUri = 'contacts';
+                if (!empty($card['addressbookid'])) {
+                    try {
+                        $abQb = $this->db->getQueryBuilder();
+                        $abQb->select('uri')
+                            ->from('addressbooks')
+                            ->where($abQb->expr()->eq('id', $abQb->createNamedParameter((int)$card['addressbookid'])))
+                            ->setMaxResults(1);
+                        $abRes = $abQb->executeQuery();
+                        $abRow = $abRes->fetch();
+                        $abRes->closeCursor();
+                        if ($abRow !== false && !empty($abRow['uri'])) {
+                            $addressbookUri = (string)$abRow['uri'];
+                        }
+                    } catch (\Throwable) {}
+                }
+
                 $cardData = (string)($card['carddata'] ?? '');
+                $rawUri = (string)$card['uri'];
+                $contactUid = preg_replace('/\.vcf$/i', '', $rawUri);
+                if (preg_match('/^UID:(.+)$/mi', $cardData, $uidMatch)) {
+                    $contactUid = trim($uidMatch[1]);
+                }
+
+                $encodedContactId = base64_encode($contactUid . '~' . $addressbookUri);
+                $appUrl = '/apps/contacts/All%20contacts/' . $encodedContactId;
                 $parsed = $this->parseVcardData($cardData);
 
                 return [
                     'exists' => true,
-                    'app_url' => '/apps/contacts/All%20contacts/' . $encodedUri,
+                    'app_url' => $appUrl,
+                    'uid' => $contactUid,
+                    'addressbook' => $addressbookUri,
                     'address' => $parsed['address'] ?: $fallbackAddress,
                     'email' => $parsed['email'] ?: $email,
                     'phone' => $parsed['phone'] ?: $phone,

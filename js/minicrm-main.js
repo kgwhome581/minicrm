@@ -1045,26 +1045,43 @@
 
         const row = document.createElement('div');
         row.className = 'nc-edit-row nc-custom-field-row';
-        row.style.display = 'flex';
-        row.style.alignItems = 'center';
-        row.style.gap = '10px';
-        row.style.marginTop = '10px';
-        row.style.width = '100%';
-        row.innerHTML = `
-            <div class="nc-edit-input-wrapper" style="width: 150px; flex-shrink: 0;">
-                <label class="nc-floating-label">Field Name</label>
-                <input type="text" class="nc-styled-input nc-custom-key" placeholder="e.g. SIN / Tax ID" value="${escapeHtml(key)}" />
-            </div>
-            <div class="nc-edit-input-wrapper nc-flex-1">
-                <label class="nc-floating-label">Value</label>
-                <input type="text" class="nc-styled-input nc-custom-val" placeholder="Field value" value="${escapeHtml(val)}" />
-            </div>
-            <button type="button" class="nc-btn-row-delete nc-btn-del-custom-field" title="Remove field">🗑️</button>
+        row.style.cssText = 'display: flex !important; align-items: center !important; gap: 10px !important; width: 100% !important; margin-bottom: 10px !important; flex-wrap: nowrap !important;';
+
+        const keyWrapper = document.createElement('div');
+        keyWrapper.className = 'nc-edit-input-wrapper nc-custom-key-wrapper';
+        keyWrapper.style.cssText = 'flex: 0 0 180px !important; width: 180px !important; min-width: 180px !important; max-width: 180px !important; position: relative !important;';
+        keyWrapper.innerHTML = `
+            <label class="nc-floating-label" style="white-space: nowrap !important;">Field Name</label>
+            <input type="text" class="nc-styled-input nc-custom-key" placeholder="Field Name" value="${escapeHtml(key)}" style="width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; font-weight: 600 !important;" />
         `;
+
+        const valWrapper = document.createElement('div');
+        valWrapper.className = 'nc-edit-input-wrapper nc-flex-1 nc-custom-val-wrapper';
+        valWrapper.style.cssText = 'flex: 1 1 auto !important; width: 100% !important; min-width: 0 !important; position: relative !important;';
+        valWrapper.innerHTML = `
+            <label class="nc-floating-label" style="white-space: nowrap !important;">Value</label>
+            <input type="text" class="nc-styled-input nc-custom-val" placeholder="Value" value="${escapeHtml(val)}" style="width: 100% !important; min-width: 0 !important; box-sizing: border-box !important;" />
+        `;
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'nc-btn-row-delete nc-btn-del-custom-field';
+        delBtn.title = 'Remove field';
+        delBtn.innerHTML = '🗑️';
+
+        row.appendChild(keyWrapper);
+        row.appendChild(valWrapper);
+        row.appendChild(delBtn);
+
         container.appendChild(row);
-        const keyInput = row.querySelector('.nc-custom-key');
-        if (keyInput && !key) {
-            setTimeout(() => keyInput.focus(), 50);
+
+        const keyInput = keyWrapper.querySelector('input');
+        const valInput = valWrapper.querySelector('input');
+
+        if (key && valInput) {
+            valInput.focus();
+        } else if (keyInput) {
+            keyInput.focus();
         }
     }
 
@@ -1379,7 +1396,7 @@
 
         const keyWrapper = document.createElement('div');
         keyWrapper.className = 'nc-edit-input-wrapper nc-custom-key-wrapper';
-        keyWrapper.style.cssText = 'flex: 0 0 170px !important; width: 170px !important; min-width: 170px !important; max-width: 170px !important; position: relative !important;';
+        keyWrapper.style.cssText = 'flex: 0 0 180px !important; width: 180px !important; min-width: 180px !important; max-width: 180px !important; position: relative !important;';
         keyWrapper.innerHTML = `
             <label class="nc-floating-label" style="white-space: nowrap !important;">Field Name</label>
             <input type="text" class="nc-styled-input nc-custom-key" placeholder="Field Name" value="${escapeHtml(key)}" style="width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; font-weight: 600 !important;" />

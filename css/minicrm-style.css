@@ -1125,6 +1125,15 @@
     width: 100%;
 }
 
+.nc-contact-toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+
 .nc-contact-header-layout {
     display: flex;
     align-items: flex-start;

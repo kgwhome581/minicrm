@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-/** @var array $_ */
 ?>
+<link rel="stylesheet" href="/apps/minicrm/css/minicrm-style.css?v=<?= time() ?>">
 <div id="minicrm-app" class="minicrm-container">
     <!-- Left Navigation: Search & Client List -->
     <div id="app-navigation" class="minicrm-navigation">
@@ -160,26 +160,16 @@ declare(strict_types=1);
 
                             <!-- 1. VIEW MODE (Matches Screenshot 2) -->
                             <div id="nc-contact-view" class="nc-contact-view-container">
-                                <div class="nc-contact-header-layout">
-                                    <div class="nc-contact-avatar-badge" id="nc-view-avatar">PS</div>
-                                    <div class="nc-contact-title-group">
-                                        <div class="nc-contact-name-row">
-                                            <h2 class="nc-contact-fullname" id="nc-view-fullname">Petro Sidorow</h2>
-                                            <div class="nc-contact-header-actions">
-                                                <button type="button" id="nc-btn-trigger-edit" class="nc-btn-action" title="Редактировать контакт">
-                                                    <span class="nc-action-icon">✏️</span> Edit
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div class="nc-contact-quick-row">
-                                            <a id="nc-view-quick-mail" href="#" class="nc-quick-btn-mail" title="Написать письмо">
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                                    <polyline points="22,6 12,13 2,6"></polyline>
-                                                </svg>
-                                            </a>
-                                        </div>
-                                    </div>
+                                <div class="nc-contact-toolbar-row">
+                                    <button type="button" id="nc-btn-trigger-edit" class="nc-btn-action" title="Редактировать контакт">
+                                        <span class="nc-action-icon">✏️</span> Edit
+                                    </button>
+                                    <a id="nc-view-quick-mail" href="#" class="nc-quick-btn-mail" title="Написать письмо">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                            <polyline points="22,6 12,13 2,6"></polyline>
+                                        </svg>
+                                    </a>
                                 </div>
 
                                 <div class="nc-contact-body-grid">

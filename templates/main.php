@@ -342,13 +342,13 @@ declare(strict_types=1);
                                             </div>
                                             <button type="button" id="nc-btn-add-email" class="nc-btn-row-add" title="Добавить email">+</button>
                                         </div>
-                                        <div class="nc-edit-row">
-                                            <select id="nc-select-email-type" class="nc-styled-select">
+                                        <div class="nc-edit-row" style="display: flex !important; align-items: center !important; gap: 10px !important; width: 100% !important;">
+                                            <select id="nc-select-email-type" class="nc-styled-select" style="width: 130px !important; min-width: 130px !important; max-width: 130px !important; flex-shrink: 0 !important; flex-grow: 0 !important;">
                                                 <option value="OTHER">Other</option>
                                                 <option value="WORK">Work</option>
                                                 <option value="HOME">Home</option>
                                             </select>
-                                            <div class="nc-edit-input-wrapper nc-flex-1">
+                                            <div class="nc-edit-input-wrapper nc-flex-1" style="flex: 1 1 auto !important; width: 100% !important; min-width: 0 !important;">
                                                 <label class="nc-floating-label">Email</label>
                                                 <input type="email" id="nc-input-email" class="nc-styled-input" placeholder="Email" />
                                             </div>
@@ -365,13 +365,13 @@ declare(strict_types=1);
                                             </div>
                                             <button type="button" id="nc-btn-add-phone" class="nc-btn-row-add" title="Добавить телефон">+</button>
                                         </div>
-                                        <div class="nc-edit-row">
-                                            <select id="nc-select-phone-type" class="nc-styled-select">
+                                        <div class="nc-edit-row" style="display: flex !important; align-items: center !important; gap: 10px !important; width: 100% !important;">
+                                            <select id="nc-select-phone-type" class="nc-styled-select" style="width: 130px !important; min-width: 130px !important; max-width: 130px !important; flex-shrink: 0 !important; flex-grow: 0 !important;">
                                                 <option value="CELL">Cell</option>
                                                 <option value="WORK">Work</option>
                                                 <option value="HOME">Home</option>
                                             </select>
-                                            <div class="nc-edit-input-wrapper nc-flex-1">
+                                            <div class="nc-edit-input-wrapper nc-flex-1" style="flex: 1 1 auto !important; width: 100% !important; min-width: 0 !important;">
                                                 <label class="nc-floating-label">Phone</label>
                                                 <input type="tel" id="nc-input-phone" class="nc-styled-input" placeholder="Phone" />
                                             </div>

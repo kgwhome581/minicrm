@@ -1356,22 +1356,22 @@
 
         const row = document.createElement('div');
         row.className = 'nc-edit-row nc-custom-field-row';
-        row.style.cssText = 'display: flex !important; align-items: center !important; gap: 8px !important; width: 100% !important; margin-bottom: 8px !important;';
+        row.style.cssText = 'display: flex !important; align-items: center !important; gap: 10px !important; width: 100% !important; margin-bottom: 10px !important; flex-wrap: nowrap !important;';
 
         const keyWrapper = document.createElement('div');
-        keyWrapper.className = 'nc-edit-input-wrapper';
-        keyWrapper.style.cssText = 'width: 140px !important; flex-shrink: 0 !important;';
+        keyWrapper.className = 'nc-edit-input-wrapper nc-custom-key-wrapper';
+        keyWrapper.style.cssText = 'flex: 0 0 170px !important; width: 170px !important; min-width: 170px !important; max-width: 170px !important; position: relative !important;';
         keyWrapper.innerHTML = `
-            <label class="nc-floating-label">Field Name</label>
-            <input type="text" class="nc-styled-input nc-custom-key" placeholder="e.g. SIN" value="${escapeHtml(key)}" />
+            <label class="nc-floating-label" style="white-space: nowrap !important;">Field Name</label>
+            <input type="text" class="nc-styled-input nc-custom-key" placeholder="Field Name" value="${escapeHtml(key)}" style="width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; font-weight: 600 !important;" />
         `;
 
         const valWrapper = document.createElement('div');
-        valWrapper.className = 'nc-edit-input-wrapper nc-flex-1';
-        valWrapper.style.cssText = 'flex: 1 1 auto !important; width: 100% !important; min-width: 0 !important;';
+        valWrapper.className = 'nc-edit-input-wrapper nc-flex-1 nc-custom-val-wrapper';
+        valWrapper.style.cssText = 'flex: 1 1 auto !important; width: 100% !important; min-width: 0 !important; position: relative !important;';
         valWrapper.innerHTML = `
-            <label class="nc-floating-label">Value</label>
-            <input type="text" class="nc-styled-input nc-custom-val" placeholder="Value" value="${escapeHtml(val)}" />
+            <label class="nc-floating-label" style="white-space: nowrap !important;">Value</label>
+            <input type="text" class="nc-styled-input nc-custom-val" placeholder="Value" value="${escapeHtml(val)}" style="width: 100% !important; min-width: 0 !important; box-sizing: border-box !important;" />
         `;
 
         const delBtn = document.createElement('button');

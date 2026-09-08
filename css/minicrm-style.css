@@ -1554,6 +1554,30 @@
     margin-top: 4px;
 }
 
+.nc-custom-field-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+    margin-bottom: 10px !important;
+    flex-wrap: nowrap !important;
+}
+
+.nc-custom-key-wrapper {
+    flex: 0 0 170px !important;
+    width: 170px !important;
+    min-width: 170px !important;
+    max-width: 170px !important;
+    position: relative !important;
+}
+
+.nc-custom-val-wrapper {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    position: relative !important;
+}
+
 .nc-w-full {
     width: 100%;
 }

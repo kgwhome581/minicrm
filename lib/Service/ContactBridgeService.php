@@ -266,25 +266,50 @@ class ContactBridgeService {
                 }
             }
 
-            // 4. Try by full name via cards_properties
+            // 4. Try by full name via cards_properties and cards table
             if ($card === null && !empty($fullName)) {
-                $card = $this->findCardByProperty('FN', trim($fullName), false);
+                $trimmedName = trim($fullName);
+                $card = $this->findCardByProperty('FN', $trimmedName, false);
+                if ($card === null) {
+                    $card = $this->findCardByProperty('FN', '%' . $trimmedName . '%', true);
+                }
+                if ($card === null) {
+                    try {
+                        $nameQb = $this->db->getQueryBuilder();
+                        $nameQb->select('*')
+                            ->from('cards')
+                            ->where($nameQb->expr()->like('carddata', $nameQb->createNamedParameter('%' . $trimmedName . '%')))
+                            ->setMaxResults(1);
+                        $nameRes = $nameQb->executeQuery();
+                        $foundCard = $nameRes->fetch();
+                        $nameRes->closeCursor();
+                        if ($foundCard !== false && !empty($foundCard['uri'])) {
+                            $card = $foundCard;
+                        }
+                    } catch (\Throwable) {}
+                }
             }
 
             if ($card !== null && !empty($card['uri'])) {
                 $addressbookUri = 'contacts';
+                $addressbookName = 'Contacts';
                 if (!empty($card['addressbookid'])) {
                     try {
                         $abQb = $this->db->getQueryBuilder();
-                        $abQb->select('uri')
+                        $abQb->select('uri', 'displayname')
                             ->from('addressbooks')
                             ->where($abQb->expr()->eq('id', $abQb->createNamedParameter((int)$card['addressbookid'])))
                             ->setMaxResults(1);
                         $abRes = $abQb->executeQuery();
                         $abRow = $abRes->fetch();
                         $abRes->closeCursor();
-                        if ($abRow !== false && !empty($abRow['uri'])) {
-                            $addressbookUri = (string)$abRow['uri'];
+                        if ($abRow !== false) {
+                            if (!empty($abRow['uri'])) {
+                                $addressbookUri = (string)$abRow['uri'];
+                            }
+                            if (!empty($abRow['displayname'])) {
+                                $addressbookName = (string)$abRow['displayname'];
+                            }
                         }
                     } catch (\Throwable) {}
                 }
@@ -304,10 +329,15 @@ class ContactBridgeService {
                     'exists' => true,
                     'app_url' => $appUrl,
                     'uid' => $contactUid,
+                    'full_name' => $parsed['full_name'] ?: $fullName,
                     'addressbook' => $addressbookUri,
+                    'addressbook_name' => $addressbookName,
                     'address' => $parsed['address'] ?: $fallbackAddress,
                     'email' => $parsed['email'] ?: $email,
                     'phone' => $parsed['phone'] ?: $phone,
+                    'website' => $parsed['website'] ?: null,
+                    'groups' => !empty($parsed['groups']) ? $parsed['groups'] : ['Clients'],
+                    'last_modified' => (int)($card['lastmodified'] ?? 0),
                     'notes' => $parsed['notes'] ?: $fallbackNotes,
                 ];
             }
@@ -326,7 +356,7 @@ class ContactBridgeService {
     }
 
     /**
-     * Looks up card by property in cards_properties table.
+     * Look up a card in Nextcloud Contacts by a property in cards_properties (e.g. EMAIL, TEL, FN).
      */
     private function findCardByProperty(string $name, string $value, bool $like = false): ?array {
         try {
@@ -371,13 +401,16 @@ class ContactBridgeService {
     /**
      * Parses key fields (Address, Notes, etc.) from raw vCard data.
      *
-     * @return array{address: string|null, email: string|null, phone: string|null, notes: string|null}
+     * @return array{full_name: string|null, address: string|null, email: string|null, phone: string|null, website: string|null, groups: array, notes: string|null}
      */
     private function parseVcardData(string $cardData): array {
         $result = [
+            'full_name' => null,
             'address' => null,
             'email' => null,
             'phone' => null,
+            'website' => null,
+            'groups' => [],
             'notes' => null,
         ];
 
@@ -388,6 +421,11 @@ class ContactBridgeService {
         // Unfold wrapped lines
         $unfolded = preg_replace("/\r\n[ \t]/", '', $cardData);
         $unfolded = preg_replace("/\n[ \t]/", '', (string)$unfolded);
+
+        // FN
+        if (preg_match('/^FN[^:]*:(.*)$/mi', (string)$unfolded, $fnMatch)) {
+            $result['full_name'] = trim(str_replace(['\;', '\,'], [';', ','], $fnMatch[1]));
+        }
 
         // 1. ADR field: POBox;Extended;Street;City;State;PostalCode;Country
         if (preg_match('/^ADR[^:]*:(.*)$/mi', (string)$unfolded, $adrMatch)) {
@@ -401,27 +439,12 @@ class ContactBridgeService {
             $country = trim(str_replace(['\;', '\,'], [';', ','], $parts[6] ?? ''));
 
             $addrParts = [];
-            if (!empty($pobox)) {
-                $addrParts[] = $pobox;
-            }
-            if (!empty($street)) {
-                $addrParts[] = $street;
-            }
-            if (!empty($extended)) {
-                $addrParts[] = $extended;
-            }
-            if (!empty($city)) {
-                $addrParts[] = $city;
-            }
-            if (!empty($state)) {
-                $addrParts[] = $state;
-            }
-            if (!empty($postalCode)) {
-                $addrParts[] = $postalCode;
-            }
-            if (!empty($country)) {
-                $addrParts[] = $country;
-            }
+            if (!empty($street)) $addrParts[] = $street;
+            if (!empty($extended)) $addrParts[] = $extended;
+            if (!empty($city)) $addrParts[] = $city;
+            if (!empty($state)) $addrParts[] = $state;
+            if (!empty($postalCode)) $addrParts[] = $postalCode;
+            if (!empty($country)) $addrParts[] = $country;
 
             if (!empty($addrParts)) {
                 $result['address'] = implode(', ', $addrParts);
@@ -450,6 +473,22 @@ class ContactBridgeService {
             $cleanTel = trim(str_replace(['\;', '\,'], [';', ','], $telMatch[1]));
             if (!empty($cleanTel)) {
                 $result['phone'] = $cleanTel;
+            }
+        }
+
+        // 5. URL field (Website)
+        if (preg_match('/^URL[^:]*:(.*)$/mi', (string)$unfolded, $urlMatch)) {
+            $cleanUrl = trim(str_replace(['\;', '\,'], [';', ','], $urlMatch[1]));
+            if (!empty($cleanUrl)) {
+                $result['website'] = $cleanUrl;
+            }
+        }
+
+        // 6. CATEGORIES field (Contact groups)
+        if (preg_match('/^CATEGORIES[^:]*:(.*)$/mi', (string)$unfolded, $catMatch)) {
+            $rawCats = trim(str_replace(['\;'], [';'], $catMatch[1]));
+            if (!empty($rawCats)) {
+                $result['groups'] = array_values(array_filter(array_map('trim', explode(',', $rawCats))));
             }
         }
 

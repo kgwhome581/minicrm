@@ -298,7 +298,7 @@ declare(strict_types=1);
                         </div>
                     </div>
 
-                    <!-- WIDGET: Nextcloud Contacts In-App Embedded View -->
+                    <!-- WIDGET: Nextcloud Contacts Native Card View -->
                     <div id="widget-panel-contact" class="minicrm-widget-view active">
                         <div class="widget-contact-container">
                             <!-- Contact Widget Header / Toolbar -->
@@ -311,19 +311,147 @@ declare(strict_types=1);
                                     </div>
                                 </div>
                                 <div class="contact-topbar-actions">
-                                    <button type="button" id="btn-refresh-contact-iframe" class="button button-small" title="Перезагрузить карточку контакта">
+                                    <button type="button" id="btn-refresh-contact-card" class="button button-small" title="Перезагрузить карточку контакта">
                                         🔄 Обновить
                                     </button>
-                                    <a id="link-external-nc-contact" href="#" target="_blank" class="button button-small" title="Открыть в отдельной вкладке Nextcloud Contacts">
-                                        ↗️ В новой вкладке
+                                    <a id="link-external-nc-contact" href="#" target="_blank" class="button button-small" title="Открыть в приложении Nextcloud Contacts">
+                                        ↗️ В приложении Contacts
                                     </a>
                                 </div>
                             </div>
 
-                            <!-- Embedded Nextcloud Contacts Iframe View -->
-                            <div class="contact-iframe-wrapper">
-                                <iframe id="contact-app-iframe" class="contact-embedded-frame" src="about:blank" frameborder="0"></iframe>
-                                <div id="contact-iframe-placeholder" class="contact-iframe-placeholder" style="display: none;">
+                            <!-- Native Nextcloud Contacts Card View (Image 2 Replica) -->
+                            <div class="nc-contact-card-wrapper" id="nc-contact-card-view">
+                                <div class="nc-contact-card-container">
+                                    <!-- Header Row: Avatar, Name, Actions -->
+                                    <div class="nc-contact-header-section">
+                                        <div class="nc-contact-avatar-circle" id="nc-contact-avatar">PS</div>
+                                        <div class="nc-contact-header-details">
+                                            <div class="nc-contact-title-row">
+                                                <h2 class="nc-contact-displayname" id="nc-card-displayname">—</h2>
+                                                <div class="nc-contact-actions-bar">
+                                                    <button type="button" id="btn-nc-card-edit" class="nc-action-btn" title="Редактировать карточку">
+                                                        ✏️ Edit
+                                                    </button>
+                                                    <a id="link-nc-card-open-ext" href="#" target="_blank" class="nc-action-btn nc-action-icon-only" title="Открыть в приложении Nextcloud Contacts">
+                                                        ↗️
+                                                    </a>
+                                                </div>
+                                            </div>
+                                            <div class="nc-contact-quick-buttons">
+                                                <a id="nc-card-quick-mail-btn" href="#" class="nc-quick-btn-icon" title="Отправить email">
+                                                    ✉️
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Properties & Shared Items Layout -->
+                                    <div class="nc-contact-body-layout">
+                                        <div class="nc-contact-props-column">
+
+                                            <!-- Email Prop Group -->
+                                            <div class="nc-prop-group" id="nc-group-email">
+                                                <div class="nc-prop-group-heading">
+                                                    <span class="nc-prop-heading-icon">✉️</span> Email
+                                                </div>
+                                                <div class="nc-prop-entry-row">
+                                                    <span class="nc-prop-type-label">Other</span>
+                                                    <span class="nc-prop-value-text" id="nc-card-email-val">—</span>
+                                                    <div class="nc-prop-actions-btns">
+                                                        <button type="button" id="btn-nc-copy-email" class="nc-prop-btn" title="Скопировать email">📋</button>
+                                                        <a id="link-nc-mail-to" href="#" class="nc-prop-btn" title="Написать письмо">↗️</a>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Website / Folder Link -->
+                                            <div class="nc-prop-group" id="nc-group-website">
+                                                <div class="nc-prop-group-heading">
+                                                    <span class="nc-prop-heading-icon">🌐</span> Website
+                                                </div>
+                                                <div class="nc-prop-entry-row">
+                                                    <span class="nc-prop-type-label">Website</span>
+                                                    <a id="nc-card-website-link" class="nc-prop-value-link" href="#" target="_blank">
+                                                        —
+                                                    </a>
+                                                </div>
+                                            </div>
+
+                                            <!-- Address Book -->
+                                            <div class="nc-prop-group" id="nc-group-addressbook">
+                                                <div class="nc-prop-group-heading">
+                                                    <span class="nc-prop-heading-icon">📖</span> Address book
+                                                </div>
+                                                <div class="nc-prop-entry-row">
+                                                    <span class="nc-prop-type-label">Address book</span>
+                                                    <span class="nc-prop-value-text" id="nc-card-addressbook-val">Contacts</span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Contact Groups -->
+                                            <div class="nc-prop-group" id="nc-group-categories">
+                                                <div class="nc-prop-group-heading">
+                                                    <span class="nc-prop-heading-icon">👥</span> Contact groups
+                                                </div>
+                                                <div class="nc-prop-entry-row">
+                                                    <span class="nc-prop-type-label">Contact groups</span>
+                                                    <div class="nc-tags-container" id="nc-card-groups-container">
+                                                        <span class="nc-tag-chip">Clients</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Phone Prop Group -->
+                                            <div class="nc-prop-group" id="nc-group-phone" style="display: none;">
+                                                <div class="nc-prop-group-heading">
+                                                    <span class="nc-prop-heading-icon">📞</span> Phone
+                                                </div>
+                                                <div class="nc-prop-entry-row">
+                                                    <span class="nc-prop-type-label">Cell</span>
+                                                    <span class="nc-prop-value-text" id="nc-card-phone-val">—</span>
+                                                    <div class="nc-prop-actions-btns">
+                                                        <button type="button" id="btn-nc-copy-phone" class="nc-prop-btn" title="Скопировать телефон">📋</button>
+                                                        <a id="link-nc-call-to" href="#" class="nc-prop-btn" title="Позвонить">📞</a>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Address Prop Group -->
+                                            <div class="nc-prop-group" id="nc-group-address" style="display: none;">
+                                                <div class="nc-prop-group-heading">
+                                                    <span class="nc-prop-heading-icon">🏠</span> Address
+                                                </div>
+                                                <div class="nc-prop-entry-row">
+                                                    <span class="nc-prop-type-label">Home</span>
+                                                    <span class="nc-prop-value-text" id="nc-card-address-val">—</span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Last Modified Stamp -->
+                                            <div class="nc-card-last-modified" id="nc-card-last-modified">
+                                                Last modified recently
+                                            </div>
+                                        </div>
+
+                                        <!-- Right Side: Shared Items Placeholder (matching Image 2) -->
+                                        <div class="nc-contact-shared-column">
+                                            <div class="nc-shared-items-box">
+                                                <div class="nc-shared-svg-icon">
+                                                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                                        <polyline points="21 15 16 10 5 21"></polyline>
+                                                    </svg>
+                                                </div>
+                                                <div class="nc-shared-text-label">No shared items with this contact</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Placeholder when contact card does not exist -->
+                                <div id="contact-card-placeholder" class="contact-iframe-placeholder" style="display: none;">
                                     <div class="empty-icon">👤</div>
                                     <h3>Контакт в Nextcloud Contacts ещё не создан</h3>
                                     <p>Нажмите кнопку ниже для автоматического создания и открытия карточки контакта в Nextcloud Contacts.</p>

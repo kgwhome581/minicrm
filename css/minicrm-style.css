@@ -1245,24 +1245,266 @@
     border-radius: 10px;
 }
 
-.contact-iframe-wrapper {
+/* --------------------------------------------------------------------------
+   WIDGET: NEXTCLOUD CONTACTS NATIVE CARD VIEW (IMAGE 2 REPLICA)
+   -------------------------------------------------------------------------- */
+.nc-contact-card-wrapper {
     flex: 1;
     width: 100%;
-    height: 100%;
-    min-height: 650px;
+    min-height: 500px;
+    background-color: var(--color-main-background, #ffffff);
     display: flex;
     flex-direction: column;
-    position: relative;
-    background-color: var(--color-main-background);
 }
 
-.contact-embedded-frame {
-    width: 100%;
-    height: 100%;
+.nc-contact-card-container {
+    padding: 32px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    max-width: 960px;
+}
+
+.nc-contact-header-section {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+}
+
+.nc-contact-avatar-circle {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background-color: #f3efe6;
+    color: #555555;
+    font-size: 26px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    user-select: none;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.nc-contact-header-details {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     flex: 1;
+}
+
+.nc-contact-title-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.nc-contact-displayname {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--color-main-text, #222);
+    line-height: 1.2;
+}
+
+.nc-contact-actions-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nc-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: 6px;
+    background-color: transparent;
+    color: var(--color-main-text, #333);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.nc-action-btn:hover {
+    background-color: var(--color-background-hover, rgba(0, 0, 0, 0.04));
+    border-color: var(--color-text-maxcontrast, #9ca3af);
+}
+
+.nc-action-icon-only {
+    padding: 6px 10px;
+}
+
+.nc-contact-quick-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nc-quick-btn-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background-color: #ebf5fa;
+    border: 1px solid #c8e1f5;
+    color: #0082c9;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    text-decoration: none;
+    transition: background-color 0.15s, transform 0.1s;
+}
+
+.nc-quick-btn-icon:hover {
+    background-color: #d8ecf8;
+    transform: scale(1.05);
+}
+
+.nc-contact-body-layout {
+    display: flex;
+    gap: 48px;
+    align-items: flex-start;
+}
+
+.nc-contact-props-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    min-width: 320px;
+}
+
+.nc-prop-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.nc-prop-group-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-main-text, #222);
+}
+
+.nc-prop-heading-icon {
+    font-size: 16px;
+}
+
+.nc-prop-entry-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 28px;
+}
+
+.nc-prop-type-label {
+    min-width: 120px;
+    font-size: 13px;
+    color: var(--color-text-maxcontrast, #6b7280);
+}
+
+.nc-prop-value-text {
+    font-size: 14px;
+    color: var(--color-main-text, #111);
+    word-break: break-all;
+}
+
+.nc-prop-value-link {
+    font-size: 14px;
+    color: var(--color-primary, #0082c9);
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.nc-prop-value-link:hover {
+    text-decoration: underline;
+}
+
+.nc-prop-actions-btns {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 4px;
+}
+
+.nc-prop-btn {
+    background: transparent;
     border: none;
-    min-height: 650px;
-    background-color: var(--color-main-background);
+    padding: 3px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--color-text-maxcontrast, #6b7280);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s;
+}
+
+.nc-prop-btn:hover {
+    background-color: var(--color-background-hover, rgba(0, 0, 0, 0.05));
+    color: var(--color-main-text, #111);
+}
+
+.nc-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.nc-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background-color: var(--color-background-dark, #f1f3f5);
+    color: var(--color-main-text, #333);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.nc-card-last-modified {
+    font-size: 12px;
+    color: var(--color-text-maxcontrast, #888);
+    margin-top: 10px;
+}
+
+.nc-contact-shared-column {
+    flex: 1;
+    min-width: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
+.nc-shared-items-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: var(--color-text-maxcontrast, #9ca3af);
+    text-align: center;
+}
+
+.nc-shared-svg-icon {
+    opacity: 0.6;
+}
+
+.nc-shared-text-label {
+    font-size: 14px;
+    font-weight: 500;
 }
 
 .contact-iframe-placeholder {

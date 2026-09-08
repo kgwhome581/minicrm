@@ -22,5 +22,11 @@ return [
         ['name' => 'api#getClientTimeline', 'url' => '/api/v1/clients/{id}/timeline', 'verb' => 'GET'],
         ['name' => 'api#sendMessage', 'url' => '/api/v1/messages/send', 'verb' => 'POST'],
         ['name' => 'api#getConfig', 'url' => '/api/v1/config', 'verb' => 'GET'],
+
+        // File Management Endpoints for In-App Files Widget
+        ['name' => 'api#getClientFiles', 'url' => '/api/v1/clients/{id}/files', 'verb' => 'GET'],
+        ['name' => 'api#uploadClientFile', 'url' => '/api/v1/clients/{id}/files/upload', 'verb' => 'POST'],
+        ['name' => 'api#downloadClientFile', 'url' => '/api/v1/clients/{id}/files/download', 'verb' => 'GET'],
+        ['name' => 'api#deleteClientFile', 'url' => '/api/v1/clients/{id}/files/delete', 'verb' => 'POST'],
     ]
 ];

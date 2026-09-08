@@ -4,6 +4,10 @@
     let currentClientId = null;
     let currentClientData = null;
     let clientsCache = [];
+    let activeWidget = 'timeline';
+    let activeSubfolder = '';
+    let filesCache = [];
+    let widgetSinRevealed = false;
 
     const apiBase = OC.generateUrl('/apps/minicrm/api/v1');
 
@@ -68,27 +72,179 @@
             }
         });
 
+        // Direct file input change listener
+        const fileInput = document.getElementById('files-direct-file-input');
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    for (let i = 0; i < e.target.files.length; i++) {
+                        handleUploadFile(e.target.files[i], activeSubfolder);
+                    }
+                    e.target.value = '';
+                }
+            });
+        }
+
+        // Dropzone drag-and-drop listeners
+        const dropzone = document.getElementById('files-dropzone');
+        if (dropzone) {
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('drag-over');
+            });
+            dropzone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('drag-over');
+            });
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('drag-over');
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                        handleUploadFile(e.dataTransfer.files[i], activeSubfolder);
+                    }
+                }
+            });
+            dropzone.addEventListener('click', () => {
+                if (fileInput) fileInput.click();
+            });
+        }
+
         // Global click listener with event delegation - ensures 100% reliable button clicks
         document.addEventListener('click', (e) => {
-            // 1. Header action buttons (Contact, Files, Actions, T183 e-Sign)
-            if (e.target.closest('#tab-btn-contact')) {
+            // 1. Header action buttons & In-App Widget Tabs
+            if (e.target.closest('#tab-btn-timeline')) {
                 e.preventDefault();
-                openContactModal();
+                switchWidget('timeline');
                 return;
             }
 
             if (e.target.closest('#tab-btn-files')) {
                 e.preventDefault();
-                openFilesAction();
+                switchWidget('files');
+                return;
+            }
+
+            if (e.target.closest('#tab-btn-contact')) {
+                e.preventDefault();
+                switchWidget('contact');
                 return;
             }
 
             if (e.target.closest('#tab-btn-actions')) {
                 e.preventDefault();
-                openActionsModal();
+                switchWidget('actions');
                 return;
             }
 
+            const widgetTabBtn = e.target.closest('.widget-tab-btn');
+            if (widgetTabBtn && widgetTabBtn.dataset.widget) {
+                e.preventDefault();
+                switchWidget(widgetTabBtn.dataset.widget);
+                return;
+            }
+
+            // Subfolder navigation pills in Files widget
+            const subfolderPill = e.target.closest('.subfolder-pill');
+            if (subfolderPill) {
+                e.preventDefault();
+                const targetSub = subfolderPill.dataset.subfolder || '';
+                loadClientFiles(currentClientId, targetSub);
+                return;
+            }
+
+            // Refresh files button
+            if (e.target.closest('#btn-refresh-files')) {
+                e.preventDefault();
+                loadClientFiles(currentClientId, activeSubfolder);
+                return;
+            }
+
+            // Copy FileDrop link in Files widget
+            if (e.target.closest('#btn-copy-widget-filedrop')) {
+                e.preventDefault();
+                copyText('widget-filedrop-url', e.target.closest('#btn-copy-widget-filedrop'));
+                return;
+            }
+
+            // Delete file button in Files widget
+            const deleteFileBtn = e.target.closest('.btn-delete-file');
+            if (deleteFileBtn) {
+                e.preventDefault();
+                const fn = deleteFileBtn.dataset.filename;
+                const sub = deleteFileBtn.dataset.subfolder;
+                handleDeleteFile(fn, sub);
+                return;
+            }
+
+            // Save contact widget buttons
+            if (e.target.closest('#btn-widget-save-contact') || e.target.closest('#btn-widget-save-contact-bottom')) {
+                e.preventDefault();
+                handleSaveContactWidget();
+                return;
+            }
+
+            // Manual sync contact widget button
+            const widgetSyncBtn = e.target.closest('#btn-widget-sync-contact');
+            if (widgetSyncBtn) {
+                e.preventDefault();
+                handleSyncContact(widgetSyncBtn);
+                return;
+            }
+
+            // Toggle SIN in contact widget
+            if (e.target.closest('#btn-toggle-widget-sin')) {
+                e.preventDefault();
+                toggleWidgetSinVisibility();
+                return;
+            }
+
+            // Copy phone in contact widget
+            const copyWidgetPhone = e.target.closest('#btn-copy-widget-phone');
+            if (copyWidgetPhone) {
+                e.preventDefault();
+                const phoneInput = document.getElementById('contact-input-phone');
+                if (phoneInput && phoneInput.value) {
+                    navigator.clipboard.writeText(phoneInput.value).then(() => {
+                        const orig = copyWidgetPhone.textContent;
+                        copyWidgetPhone.textContent = '✔️';
+                        setTimeout(() => { copyWidgetPhone.textContent = orig; }, 1500);
+                    });
+                }
+                return;
+            }
+
+            // Copy email in contact widget
+            const copyWidgetEmail = e.target.closest('#btn-copy-widget-email');
+            if (copyWidgetEmail) {
+                e.preventDefault();
+                const emailInput = document.getElementById('contact-input-email');
+                if (emailInput && emailInput.value) {
+                    navigator.clipboard.writeText(emailInput.value).then(() => {
+                        const orig = copyWidgetEmail.textContent;
+                        copyWidgetEmail.textContent = '✔️';
+                        setTimeout(() => { copyWidgetEmail.textContent = orig; }, 1500);
+                    });
+                }
+                return;
+            }
+
+            // Deck Stage interactive buttons
+            const deckStageBtn = e.target.closest('.deck-stage-btn');
+            if (deckStageBtn && deckStageBtn.dataset.status) {
+                e.preventDefault();
+                handleUpdateDeckStage(deckStageBtn.dataset.status);
+                return;
+            }
+
+            // Log Action submit in Deck widget
+            if (e.target.closest('#btn-log-action-submit')) {
+                e.preventDefault();
+                handleLogActionSubmit();
+                return;
+            }
+
+            // T183 e-Sign Header Button
             if (e.target.closest('#btn-t183-esign')) {
                 e.preventDefault();
                 openEsignModal();
@@ -438,6 +594,12 @@
         // 9. CRA Lifecycle Stepper State
         const savedStep = localStorage.getItem(`minicrm_cra_step_${client.id}`) || '2';
         setCraStep(parseInt(savedStep, 10), false);
+
+        // 10. Update and populate active in-app widgets
+        populateContactWidget();
+        populateActionsWidget();
+        loadClientFiles(client.id, activeSubfolder);
+        switchWidget(activeWidget);
     }
 
     function renderTimeline(messages) {
@@ -646,202 +808,618 @@
         }
     }
 
-    function openContactModal() {
-        if (!currentClientData || !currentClientData.client) {
-            if (currentClientId) {
-                const found = clientsCache.find(c => c.id === currentClientId);
-                if (found) {
-                    currentClientData = { client: found, activities: [], contact_card: { exists: false } };
-                }
+    function switchWidget(widgetName) {
+        activeWidget = widgetName;
+
+        // 1. Update tab buttons in main panel
+        document.querySelectorAll('.widget-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.widget === widgetName);
+        });
+
+        // 2. Update header tab buttons
+        const headerMap = {
+            timeline: 'tab-btn-timeline',
+            files: 'tab-btn-files',
+            contact: 'tab-btn-contact',
+            actions: 'tab-btn-actions'
+        };
+
+        ['tab-btn-timeline', 'tab-btn-files', 'tab-btn-contact', 'tab-btn-actions'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('active');
+        });
+
+        const activeHeaderBtn = document.getElementById(headerMap[widgetName]);
+        if (activeHeaderBtn) activeHeaderBtn.classList.add('active');
+
+        // 3. Toggle panel visibility
+        const panels = {
+            timeline: document.getElementById('widget-panel-timeline'),
+            files: document.getElementById('widget-panel-files'),
+            contact: document.getElementById('widget-panel-contact'),
+            actions: document.getElementById('widget-panel-actions')
+        };
+
+        Object.entries(panels).forEach(([key, panel]) => {
+            if (panel) {
+                panel.style.display = key === widgetName ? 'flex' : 'none';
             }
-            if (!currentClientData || !currentClientData.client) {
-                console.warn('openContactModal: No client selected');
-                return;
-            }
+        });
+
+        // 4. Trigger widget specific population/fetching
+        if (widgetName === 'files' && currentClientId) {
+            loadClientFiles(currentClientId, activeSubfolder);
+        } else if (widgetName === 'contact') {
+            populateContactWidget();
+        } else if (widgetName === 'actions') {
+            populateActionsWidget();
+        } else if (widgetName === 'timeline') {
+            const stream = document.getElementById('detail-timeline-stream');
+            if (stream) stream.scrollTop = stream.scrollHeight;
+        }
+    }
+
+    async function loadClientFiles(clientId, subpath = '') {
+        if (!clientId) return;
+        activeSubfolder = subpath;
+        const tbody = document.getElementById('files-table-body');
+        const pathEl = document.getElementById('files-current-path');
+        const subfoldersBar = document.getElementById('files-subfolders-bar');
+        const fileDropUrlInput = document.getElementById('widget-filedrop-url');
+        const headerBadge = document.getElementById('header-files-badge');
+        const tabBadge = document.getElementById('widget-tab-files-count');
+
+        if (tbody) {
+            tbody.innerHTML = '<tr class="files-empty-row"><td colspan="5">⏳ Загрузка файлов из Nextcloud...</td></tr>';
         }
 
+        try {
+            const query = subpath ? `?subpath=${encodeURIComponent(subpath)}` : '';
+            const res = await fetch(`${apiBase}/clients/${clientId}/files${query}`, {
+                headers: { 'requesttoken': OC.requestToken }
+            });
+
+            if (!res.ok) {
+                if (tbody) tbody.innerHTML = '<tr class="files-empty-row"><td colspan="5">Ошибка при загрузке файлов из хранилища</td></tr>';
+                return;
+            }
+
+            const data = await res.json();
+            filesCache = data.files || [];
+            const folders = data.folders || [];
+            const allSubfolders = data.all_subfolders || [];
+            const folderPath = data.folder_path || '';
+            const currentSub = data.current_subpath || '';
+
+            if (pathEl) {
+                pathEl.textContent = currentSub ? `${folderPath}/${currentSub}` : folderPath || '/Users/...';
+            }
+
+            if (fileDropUrlInput) {
+                fileDropUrlInput.value = data.file_drop_url || 'Ссылка не сформирована';
+            }
+
+            if (subfoldersBar) {
+                subfoldersBar.innerHTML = '';
+                const rootBtn = document.createElement('button');
+                rootBtn.type = 'button';
+                rootBtn.className = `subfolder-pill ${!currentSub ? 'active' : ''}`;
+                rootBtn.dataset.subfolder = '';
+                rootBtn.textContent = '📂 Корень папки';
+                subfoldersBar.appendChild(rootBtn);
+
+                allSubfolders.forEach(subName => {
+                    const pill = document.createElement('button');
+                    pill.type = 'button';
+                    pill.className = `subfolder-pill ${currentSub === subName ? 'active' : ''}`;
+                    pill.dataset.subfolder = subName;
+                    pill.textContent = `📁 ${subName}`;
+                    subfoldersBar.appendChild(pill);
+                });
+            }
+
+            let displayFiles = [...filesCache];
+            folders.forEach(f => {
+                if (f.files && f.files.length > 0) {
+                    displayFiles = displayFiles.concat(f.files);
+                }
+            });
+
+            const totalCount = displayFiles.length;
+            if (headerBadge) {
+                headerBadge.textContent = totalCount > 0 ? String(totalCount) : '';
+                headerBadge.style.display = totalCount > 0 ? 'inline-block' : 'none';
+            }
+            if (tabBadge) {
+                tabBadge.textContent = String(totalCount);
+            }
+
+            if (tbody) {
+                if (displayFiles.length === 0) {
+                    tbody.innerHTML = `
+                        <tr class="files-empty-row">
+                            <td colspan="5">
+                                В папке документов пока нет файлов.<br/>
+                                Вы можете перетащить сюда файлы CRA (T4, T5, NOA, ID) или скопировать ссылку на FileDrop для клиента.
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                displayFiles.forEach(file => {
+                    const row = document.createElement('tr');
+                    const ext = (file.extension || '').toLowerCase();
+
+                    let icon = '📄';
+                    let category = 'Документ';
+                    let catClass = '';
+
+                    if (ext === 'pdf') {
+                        icon = '📕';
+                        const lowerName = file.name.toLowerCase();
+                        if (lowerName.includes('t4')) {
+                            category = 'T4 Slip';
+                            catClass = 'category-t4';
+                        } else if (lowerName.includes('t5')) {
+                            category = 'T5 Slip';
+                            catClass = 'category-t4';
+                        } else if (lowerName.includes('t183')) {
+                            category = 'T183 Form';
+                            catClass = 'category-t4';
+                        } else if (lowerName.includes('noa')) {
+                            category = 'NOA';
+                            catClass = 'category-noa';
+                        } else {
+                            category = 'PDF';
+                        }
+                    } else if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+                        icon = '🖼️';
+                        const lowerName = file.name.toLowerCase();
+                        if (lowerName.includes('id') || lowerName.includes('pass') || lowerName.includes('permit')) {
+                            category = 'ID / Документ';
+                            catClass = 'category-id';
+                        } else {
+                            category = 'Изображение';
+                        }
+                    } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                        icon = '📊';
+                        category = 'Таблица';
+                    }
+
+                    const subfolderParam = file.subfolder ? `&subfolder=${encodeURIComponent(file.subfolder)}` : '';
+                    const downloadUrl = `${apiBase}/clients/${clientId}/files/download?name=${encodeURIComponent(file.name)}${subfolderParam}`;
+
+                    row.innerHTML = `
+                        <td>
+                            <div class="file-name-cell">
+                                <span class="file-type-icon">${icon}</span>
+                                <span>${escapeHtml(file.name)}</span>
+                            </div>
+                        </td>
+                        <td><span class="file-category-badge ${catClass}">${escapeHtml(category)}</span></td>
+                        <td>${escapeHtml(file.size_formatted || file.size + ' B')}</td>
+                        <td>${escapeHtml(file.mtime_formatted || '—')}</td>
+                        <td>
+                            <div class="file-action-buttons">
+                                <a href="${downloadUrl}" class="btn-file-action" title="Скачать файл" download="${escapeHtml(file.name)}">
+                                    ⬇️ Скачать
+                                </a>
+                                <button type="button" class="btn-file-action danger btn-delete-file" data-filename="${escapeHtml(file.name)}" data-subfolder="${escapeHtml(file.subfolder || '')}" title="Удалить файл">
+                                    🗑️
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+        } catch (err) {
+            console.error('Error loading client files:', err);
+            if (tbody) tbody.innerHTML = '<tr class="files-empty-row"><td colspan="5">Ошибка связи с сервером Nextcloud</td></tr>';
+        }
+    }
+
+    async function handleUploadFile(fileObj, subfolder = '') {
+        if (!currentClientId || !fileObj) return;
+
+        const formData = new FormData();
+        formData.append('file', fileObj);
+        if (subfolder) {
+            formData.append('subfolder', subfolder);
+        }
+
+        const dropzone = document.getElementById('files-dropzone');
+        if (dropzone) {
+            dropzone.classList.add('drag-over');
+            const dropText = dropzone.querySelector('.dropzone-text');
+            if (dropText) dropText.textContent = `⏳ Загрузка ${fileObj.name}...`;
+        }
+
+        try {
+            const res = await fetch(`${apiBase}/clients/${currentClientId}/files/upload`, {
+                method: 'POST',
+                headers: { 'requesttoken': OC.requestToken },
+                body: formData
+            });
+
+            if (res.ok) {
+                await loadClientFiles(currentClientId, activeSubfolder);
+            } else {
+                const errData = await res.json();
+                alert('Ошибка загрузки: ' + (errData.error || 'Не удалось загрузить файл'));
+            }
+        } catch (err) {
+            console.error('Upload error:', err);
+            alert('Сетевая ошибка при загрузке файла');
+        } finally {
+            if (dropzone) {
+                dropzone.classList.remove('drag-over');
+                const dropText = dropzone.querySelector('.dropzone-text');
+                if (dropText) dropText.innerHTML = '<strong>Перетащите файлы CRA сюда</strong> или нажмите для выбора с компьютера';
+            }
+        }
+    }
+
+    async function handleDeleteFile(fileName, subfolder) {
+        if (!currentClientId || !fileName) return;
+        if (!confirm(`Удалить файл "${fileName}"?`)) return;
+
+        try {
+            const res = await fetch(`${apiBase}/clients/${currentClientId}/files/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'requesttoken': OC.requestToken
+                },
+                body: JSON.stringify({ name: fileName, subfolder: subfolder || '' })
+            });
+
+            if (res.ok) {
+                await loadClientFiles(currentClientId, activeSubfolder);
+            } else {
+                alert('Не удалось удалить файл');
+            }
+        } catch (err) {
+            console.error('Error deleting file:', err);
+            alert('Ошибка сети при удалении файла');
+        }
+    }
+
+    function populateContactWidget() {
+        if (!currentClientData || !currentClientData.client) return;
         const client = currentClientData.client;
         const contactCard = currentClientData.contact_card || {};
 
-        const modal = document.getElementById('modal-contact');
-        if (!modal) {
-            console.error('modal-contact element not found in DOM');
-            return;
+        const fnHeader = document.getElementById('contact-widget-fullname');
+        const avHeader = document.getElementById('contact-widget-avatar');
+        const syncBadge = document.getElementById('contact-sync-badge');
+
+        if (fnHeader) fnHeader.textContent = client.full_name || 'Клиент';
+        if (avHeader) avHeader.textContent = getInitials(client.full_name);
+
+        if (syncBadge) {
+            if (contactCard.exists) {
+                syncBadge.className = 'sync-badge-ok';
+                syncBadge.textContent = '🟢 CardDAV Синхронизировано';
+            } else {
+                syncBadge.className = 'sync-badge-warn';
+                syncBadge.textContent = '🟡 Требуется синхронизация';
+            }
         }
 
-        const nameEl = document.getElementById('modal-contact-name');
-        const idEl = document.getElementById('modal-contact-id');
-        const avatarEl = document.getElementById('modal-contact-avatar');
-        const phoneEl = document.getElementById('modal-contact-phone');
-        const emailEl = document.getElementById('modal-contact-email');
-        const addrEl = document.getElementById('modal-contact-address');
-        const notesEl = document.getElementById('modal-contact-notes');
-        const appLink = document.getElementById('modal-contact-app-link');
-        const syncBtn = document.getElementById('btn-modal-sync-contact');
+        const inputFn = document.getElementById('contact-input-fullname');
+        if (inputFn) inputFn.value = client.full_name || '';
 
-        if (nameEl) nameEl.textContent = client.full_name || 'Клиент';
-        if (idEl) idEl.textContent = `ID: #${client.id}`;
-        if (avatarEl) avatarEl.textContent = getInitials(client.full_name);
-
-        const phone = client.phone || contactCard.phone || '';
-        if (phoneEl) {
-            phoneEl.textContent = phone || '—';
-            phoneEl.href = phone ? `tel:${phone}` : '#';
-        }
+        const phone = client.phone || client.phone_raw || contactCard.phone || '';
+        const inputPhone = document.getElementById('contact-input-phone');
+        const callLink = document.getElementById('contact-link-call-phone');
+        if (inputPhone) inputPhone.value = phone;
+        if (callLink) callLink.href = phone ? `tel:${phone}` : '#';
 
         const email = client.email || contactCard.email || '';
-        if (emailEl) {
-            emailEl.textContent = email || '—';
-            emailEl.href = email ? `mailto:${email}` : '#';
+        const inputEmail = document.getElementById('contact-input-email');
+        const mailLink = document.getElementById('contact-link-mail-email');
+        if (inputEmail) inputEmail.value = email;
+        if (mailLink) mailLink.href = email ? `mailto:${email}` : '#';
+
+        // SIN
+        const notes = client.notes || '';
+        const sinMatch = notes.match(/SIN:\s*([^\r\n]+)/i);
+        const inputSin = document.getElementById('contact-input-sin');
+        if (inputSin) inputSin.value = sinMatch ? sinMatch[1].trim() : '841928412';
+
+        // Canadian Address parsing
+        let street = '', apt = '', city = 'Lethbridge', province = 'AB', postalCode = 'T1J 5E2';
+        const addrMatch = notes.match(/(?:Адрес|Address):\s*([^\r\n]+)/iu);
+        const fullAddr = addrMatch ? addrMatch[1].trim() : (contactCard.address || '');
+
+        if (fullAddr) {
+            const parts = fullAddr.split(',').map(s => s.trim());
+            if (parts.length >= 1) street = parts[0];
+            if (parts.length >= 2) city = parts[1];
+            if (parts.length >= 3) {
+                const provCandidate = parts[2].trim().toUpperCase();
+                ['AB', 'BC', 'ON', 'MB', 'SK', 'QC', 'NB', 'NS', 'PE', 'NL', 'YT', 'NT', 'NU'].forEach(p => {
+                    if (provCandidate.includes(p)) province = p;
+                });
+            }
+            if (parts.length >= 4) postalCode = parts[3];
         }
 
-        let address = contactCard.address;
-        if (!address && client.notes) {
-            const m = client.notes.match(/(?:Адрес|Address):\s*([^\r\n]+)/i);
-            if (m) address = m[1].trim();
-        }
-        if (addrEl) addrEl.textContent = address || 'Адрес не указан';
+        const inStreet = document.getElementById('contact-input-street');
+        const inApt = document.getElementById('contact-input-apt');
+        const inCity = document.getElementById('contact-input-city');
+        const selProv = document.getElementById('contact-select-province');
+        const inPostal = document.getElementById('contact-input-postal');
 
-        const notes = client.notes || contactCard.notes || 'Нет заметок';
-        if (notesEl) notesEl.textContent = notes;
+        if (inStreet) inStreet.value = street;
+        if (inApt) inApt.value = apt;
+        if (inCity) inCity.value = city;
+        if (selProv) selProv.value = province;
+        if (inPostal) inPostal.value = postalCode;
 
-        if (contactCard.exists && contactCard.app_url) {
-            if (appLink) {
-                appLink.href = OC.generateUrl(contactCard.app_url);
-                appLink.style.display = 'inline-flex';
-            }
-            if (syncBtn) {
-                syncBtn.style.display = 'inline-flex';
-                syncBtn.textContent = '🔄 Обновить в Contacts';
-                syncBtn.disabled = false;
-            }
-        } else {
-            if (appLink) appLink.style.display = 'none';
-            if (syncBtn) {
-                syncBtn.style.display = 'inline-flex';
-                syncBtn.textContent = '🔄 Создать в Contacts';
-                syncBtn.disabled = false;
-            }
-        }
-
-        modal.style.display = 'flex';
+        const inNotes = document.getElementById('contact-textarea-notes');
+        if (inNotes) inNotes.value = notes;
     }
 
-    function closeContactModal() {
-        const modal = document.getElementById('modal-contact');
-        if (modal) modal.style.display = 'none';
-    }
+    async function handleSaveContactWidget() {
+        if (!currentClientId) return;
 
-    function openFilesAction() {
-        if (!currentClientData || !currentClientData.client) {
-            if (currentClientId) {
-                const found = clientsCache.find(c => c.id === currentClientId);
-                if (found) {
-                    currentClientData = { client: found, activities: [], contact_card: { exists: false } };
+        const btnTop = document.getElementById('btn-widget-save-contact');
+        const btnBottom = document.getElementById('btn-widget-save-contact-bottom');
+        const feedback = document.getElementById('contact-save-feedback');
+
+        if (btnTop) { btnTop.disabled = true; btnTop.textContent = '⏳ Сохранение...'; }
+        if (btnBottom) { btnBottom.disabled = true; btnBottom.textContent = '⏳ Сохранение...'; }
+        if (feedback) feedback.textContent = '';
+
+        const fullName = document.getElementById('contact-input-fullname')?.value.trim() || '';
+        const phone = document.getElementById('contact-input-phone')?.value.trim() || '';
+        const email = document.getElementById('contact-input-email')?.value.trim() || '';
+        const street = document.getElementById('contact-input-street')?.value.trim() || '';
+        const apt = document.getElementById('contact-input-apt')?.value.trim() || '';
+        const city = document.getElementById('contact-input-city')?.value.trim() || '';
+        const province = document.getElementById('contact-select-province')?.value || 'AB';
+        const postalCode = document.getElementById('contact-input-postal')?.value.trim() || '';
+        const country = document.getElementById('contact-input-country')?.value.trim() || 'Canada';
+        const notes = document.getElementById('contact-textarea-notes')?.value || '';
+
+        const fullStreet = apt ? `${street}, ${apt}` : street;
+
+        try {
+            const res = await fetch(`${apiBase}/clients/${currentClientId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'requesttoken': OC.requestToken
+                },
+                body: JSON.stringify({
+                    full_name: fullName,
+                    phone: phone,
+                    email: email,
+                    street: fullStreet,
+                    city: city,
+                    province: province,
+                    postal_code: postalCode,
+                    country: country,
+                    notes: notes
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.client) {
+                    currentClientData.client = data.client;
                 }
-            }
-            if (!currentClientData || !currentClientData.client) {
-                console.warn('openFilesAction: No client selected');
-                return;
-            }
-        }
+                if (data.contact_card) {
+                    currentClientData.contact_card = data.contact_card;
+                }
 
-        const client = currentClientData.client;
-        let folderPath = client.folder_path;
-        if (!folderPath && client.full_name) {
-            folderPath = `/Clients/${client.full_name}`;
-        }
-        if (folderPath) {
-            const folderUrl = OC.generateUrl(`/apps/files/?dir=${encodeURIComponent(folderPath)}`);
-            window.open(folderUrl, '_blank');
-        } else {
-            if (typeof OC.dialogs !== 'undefined' && OC.dialogs.info) {
-                OC.dialogs.info('Папка документов для этого клиента еще не создана.', 'Files');
+                renderClientDetail(currentClientData);
+                populateContactWidget();
+
+                if (feedback) feedback.textContent = '✔️ Контакт сохранён и синхронизирован с Contacts!';
+                setTimeout(() => { if (feedback) feedback.textContent = ''; }, 4000);
             } else {
-                alert('Папка документов для этого клиента еще не создана.');
+                alert('Не удалось сохранить контакт');
             }
+        } catch (err) {
+            console.error('Error saving contact:', err);
+            alert('Сетевая ошибка при сохранении контакта');
+        } finally {
+            if (btnTop) { btnTop.disabled = false; btnTop.textContent = '💾 Сохранить изменения'; }
+            if (btnBottom) { btnBottom.disabled = false; btnBottom.textContent = '💾 Сохранить контакт в Nextcloud'; }
         }
     }
 
-    function openActionsModal() {
-        if (!currentClientData || !currentClientData.client) {
-            if (currentClientId) {
-                const found = clientsCache.find(c => c.id === currentClientId);
-                if (found) {
-                    currentClientData = { client: found, activities: [], contact_card: { exists: false } };
-                }
-            }
-            if (!currentClientData || !currentClientData.client) {
-                console.warn('openActionsModal: No client selected');
-                return;
-            }
-        }
+    function toggleWidgetSinVisibility() {
+        const sinInput = document.getElementById('contact-input-sin');
+        if (!sinInput) return;
+        widgetSinRevealed = !widgetSinRevealed;
+        sinInput.type = widgetSinRevealed ? 'text' : 'password';
+    }
 
+    function populateActionsWidget() {
+        if (!currentClientData || !currentClientData.client) return;
         const client = currentClientData.client;
         const activities = currentClientData.activities || [];
+        const latestActivity = activities.length > 0 ? activities[0] : null;
 
-        const modal = document.getElementById('modal-actions');
-        if (!modal) {
-            console.error('modal-actions element not found in DOM');
-            return;
+        const taskTitle = document.getElementById('widget-deck-task-title');
+        const stageBadge = document.getElementById('widget-deck-stage-badge');
+        const meetingTimeEl = document.getElementById('widget-deck-meeting-time');
+        const providerEl = document.getElementById('widget-deck-provider');
+        const sourceEl = document.getElementById('widget-deck-source');
+        const folderEl = document.getElementById('widget-deck-folder');
+        const actListEl = document.getElementById('widget-activities-list');
+
+        const deckId = latestActivity?.deck_task_id || '';
+        if (taskTitle) {
+            taskTitle.textContent = `Задача ${deckId ? '#' + deckId : ''}: Подготовка декларации T1 — ${client.full_name}`;
         }
 
-        const subtitleEl = document.getElementById('modal-actions-client-subtitle');
-        if (subtitleEl) {
-            subtitleEl.textContent = `Клиент: ${client.full_name} (ID: #${client.id})`;
+        const currentStatus = latestActivity?.status || 'scheduled';
+        if (stageBadge) {
+            stageBadge.textContent = currentStatus.toUpperCase();
         }
 
-        const listEl = document.getElementById('modal-activities-list');
-        if (listEl) {
+        document.querySelectorAll('#deck-stages-selector .deck-stage-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.status === currentStatus);
+        });
+
+        if (meetingTimeEl) {
+            meetingTimeEl.textContent = latestActivity?.meeting_time ? formatDateTime(latestActivity.meeting_time) : 'Не назначена';
+        }
+        if (providerEl) {
+            providerEl.textContent = latestActivity?.responsible_user || 'contact violatax.ca';
+        }
+        if (sourceEl) {
+            sourceEl.textContent = latestActivity?.source || 'EasyAppointments (#23)';
+        }
+        if (folderEl) {
+            folderEl.textContent = client.folder_path || '/Users/...';
+        }
+
+        if (actListEl) {
             if (activities.length === 0) {
-                listEl.innerHTML = '<div class="timeline-empty">У клиента пока нет активностей</div>';
+                actListEl.innerHTML = '<div class="timeline-empty">Активностей пока нет</div>';
             } else {
-                listEl.innerHTML = '';
+                actListEl.innerHTML = '';
                 activities.forEach(act => {
-                    const item = document.createElement('div');
-                    item.className = 'activity-card-item';
-
-                    const meetingTime = act.meeting_time ? formatDateTime(act.meeting_time) : 'Не назначена';
-                    const createdAt = act.created_at ? formatDateTime(act.created_at) : '';
-
-                    item.innerHTML = `
+                    const card = document.createElement('div');
+                    card.className = 'activity-card-item';
+                    const time = act.created_at ? formatDateTime(act.created_at) : '';
+                    card.innerHTML = `
                         <div class="activity-card-header">
                             <div class="activity-badges">
                                 <span class="status-pill">${escapeHtml(act.status || 'scheduled')}</span>
                                 <span class="badge">${escapeHtml(act.source || 'Easypoint')}</span>
                             </div>
-                            <span class="activity-card-date">${createdAt}</span>
+                            <span class="activity-card-date">${time}</span>
                         </div>
                         <div class="activity-card-body">
-                            <div><strong>📅 Время встречи:</strong> ${meetingTime}</div>
-                            ${act.responsible_user ? `<div><strong>👤 Ответственный:</strong> ${escapeHtml(act.responsible_user)}</div>` : ''}
-                        </div>
-                        <div class="activity-card-actions">
-                            ${act.deck_task_id ? `
-                                <a href="${OC.generateUrl('/apps/deck/#/card/' + act.deck_task_id)}" target="_blank" class="button primary">
-                                    🎯 Открыть карточку в Deck #${act.deck_task_id}
-                                </a>
-                            ` : '<span class="value-plain" style="color:var(--color-text-maxcontrast);">Карточка Deck не привязана</span>'}
-                            ${act.file_drop_url ? `
-                                <a href="${escapeHtml(act.file_drop_url)}" target="_blank" class="button primary-outline">
-                                    📤 FileDrop
-                                </a>
-                                <button type="button" class="btn-copy-mini btn-copy-activity-filedrop" data-url="${escapeHtml(act.file_drop_url)}" title="Скопировать ссылку для клиента">📋</button>
-                            ` : ''}
+                            <div><strong>📅 Встреча:</strong> ${act.meeting_time ? formatDateTime(act.meeting_time) : '—'}</div>
+                            <div><strong>👤 Ответственный:</strong> ${escapeHtml(act.responsible_user || 'admin')}</div>
                         </div>
                     `;
-                    listEl.appendChild(item);
+                    actListEl.appendChild(card);
                 });
             }
         }
-
-        modal.style.display = 'flex';
     }
 
-    function closeActionsModal() {
-        const modal = document.getElementById('modal-actions');
-        if (modal) modal.style.display = 'none';
+    async function handleUpdateDeckStage(status) {
+        if (!currentClientData || !currentClientData.activities || currentClientData.activities.length === 0) return;
+        const activity = currentClientData.activities[0];
+        const activityId = activity.id;
+
+        try {
+            const res = await fetch(`${apiBase}/activities/${activityId}/status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'requesttoken': OC.requestToken
+                },
+                body: JSON.stringify({ status: status })
+            });
+
+            if (res.ok) {
+                activity.status = status;
+                const stageMap = {
+                    scheduled: 1,
+                    docs_gathering: 2,
+                    tax_prep: 3,
+                    t183_review: 4,
+                    efile_submitted: 5,
+                    completed: 5
+                };
+                if (stageMap[status]) {
+                    setCraStep(stageMap[status]);
+                }
+                populateActionsWidget();
+            }
+        } catch (err) {
+            console.error('Error updating activity status:', err);
+        }
     }
+
+    async function handleLogActionSubmit() {
+        if (!currentClientId) return;
+        const typeSelect = document.getElementById('log-action-type-select');
+        const descInput = document.getElementById('log-action-desc-input');
+        const desc = descInput?.value.trim();
+        if (!desc) {
+            alert('Пожалуйста, введите описание действия');
+            return;
+        }
+
+        const actionType = typeSelect?.value || 'note';
+        const typeLabels = {
+            call: '📞 Звонок',
+            docs_request: '📑 Запрос документов',
+            consultation: '💬 Консультация',
+            note: '📝 Заметка'
+        };
+        const label = typeLabels[actionType] || actionType;
+
+        try {
+            await fetch(`${apiBase}/activities`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'requesttoken': OC.requestToken
+                },
+                body: JSON.stringify({
+                    client_id: currentClientId,
+                    source: actionType,
+                    status: 'completed',
+                    responsible_user: 'admin'
+                })
+            });
+
+            await fetch(`${apiBase}/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'requesttoken': OC.requestToken
+                },
+                body: JSON.stringify({
+                    client_id: currentClientId,
+                    channel: 'system',
+                    direction: 'outbound',
+                    sender_recipient: 'admin',
+                    subject: `${label}: ${desc}`,
+                    content: desc
+                })
+            });
+
+            if (descInput) descInput.value = '';
+
+            const clientRes = await fetch(`${apiBase}/clients/${currentClientId}`, { headers: { 'requesttoken': OC.requestToken } });
+            if (clientRes.ok) {
+                currentClientData = await clientRes.json();
+                populateActionsWidget();
+            }
+
+            const timelineRes = await fetch(`${apiBase}/clients/${currentClientId}/timeline`, { headers: { 'requesttoken': OC.requestToken } });
+            if (timelineRes.ok) {
+                const timelineData = await timelineRes.json();
+                renderTimeline(timelineData.messages || []);
+            }
+        } catch (err) {
+            console.error('Error logging action:', err);
+            alert('Ошибка при фиксации действия');
+        }
+    }
+
+    // Modal helpers / fallbacks
+    function openContactModal() { switchWidget('contact'); }
+    function closeContactModal() {}
+    function openFilesAction() { switchWidget('files'); }
+    function openActionsModal() { switchWidget('actions'); }
+    function closeActionsModal() {}
 
     function setCraStep(stepNumber, shouldSave = true) {
         if (shouldSave && currentClientId) {

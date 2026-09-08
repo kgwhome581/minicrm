@@ -49,15 +49,18 @@ declare(strict_types=1);
                         </div>
                     </div>
 
-                    <!-- Header Quick Action Buttons -->
+                    <!-- Header Quick Action Buttons (Widget Switchers) -->
                     <div class="client-header-actions">
-                        <button type="button" id="tab-btn-files" class="header-tab-btn" title="Открыть персональную директорию в проводнике Files">
-                            📁 Files
+                        <button type="button" id="tab-btn-timeline" class="header-tab-btn active" title="Мультиканальная переписка (Email, WhatsApp, Telegram)">
+                            💬 Timeline
                         </button>
-                        <button type="button" id="tab-btn-contact" class="header-tab-btn" title="Подробная карточка контакта в Nextcloud Contacts">
+                        <button type="button" id="tab-btn-files" class="header-tab-btn" title="Файлы и документы клиента в Nextcloud">
+                            📁 Files <span id="header-files-badge" class="badge-count"></span>
+                        </button>
+                        <button type="button" id="tab-btn-contact" class="header-tab-btn" title="Карточка контакта и синхронизация CardDAV">
                             👤 Contact
                         </button>
-                        <button type="button" id="tab-btn-actions" class="header-tab-btn" title="Задачи и активности в Nextcloud Deck">
+                        <button type="button" id="tab-btn-actions" class="header-tab-btn" title="Задачи Deck и активности">
                             🎯 Deck <span id="header-deck-id"></span>
                         </button>
                         <button type="button" id="btn-t183-esign" class="header-tab-btn btn-esign-highlight" title="Инициировать отправку формы CRA T183 на e-Sign">
@@ -219,36 +222,357 @@ declare(strict_types=1);
                     </div>
                 </div>
 
-                <!-- Right Column: Multichannel Timeline & Messaging -->
+                <!-- Right Column: Interactive Widgets Panel (Timeline, Files, Contact, Deck & Actions) -->
                 <div class="minicrm-main-panel">
-                    <div class="minicrm-timeline-container">
-                        <div class="timeline-header-bar">
-                            <div class="timeline-title-wrap">
-                                <h3>Мультиканальная история коммуникаций</h3>
-                                <span class="timeline-sync-badge">⚡ n8n Sync</span>
+                    <!-- In-App Widget View Switcher Bar -->
+                    <div class="widget-tab-bar" id="widget-tab-bar">
+                        <button type="button" class="widget-tab-btn active" data-widget="timeline">
+                            💬 Переписка & Timeline
+                        </button>
+                        <button type="button" class="widget-tab-btn" data-widget="files">
+                            📁 Документы & Files <span id="widget-tab-files-count" class="tab-badge">0</span>
+                        </button>
+                        <button type="button" class="widget-tab-btn" data-widget="contact">
+                            👤 Карточка Контакта
+                        </button>
+                        <button type="button" class="widget-tab-btn" data-widget="actions">
+                            🎯 Задачи Deck & Активности
+                        </button>
+                    </div>
+
+                    <!-- WIDGET 1: Multichannel Timeline & Messaging -->
+                    <div id="widget-panel-timeline" class="minicrm-widget-view active">
+                        <div class="minicrm-timeline-container">
+                            <div class="timeline-header-bar">
+                                <div class="timeline-title-wrap">
+                                    <h3>Мультиканальная история коммуникаций</h3>
+                                    <span class="timeline-sync-badge">⚡ n8n Sync</span>
+                                </div>
+                                <span class="timeline-meta-hint">Telegram, WhatsApp, Email, Deck</span>
                             </div>
-                            <span class="timeline-meta-hint">Telegram, WhatsApp, Email, Deck</span>
+                            <div id="detail-timeline-stream" class="timeline-stream">
+                                <!-- Dynamic message bubbles -->
+                            </div>
                         </div>
-                        <div id="detail-timeline-stream" class="timeline-stream">
-                            <!-- Dynamic message bubbles -->
+
+                        <!-- Outbound Reply Box -->
+                        <div class="minicrm-reply-box">
+                            <div class="reply-controls">
+                                <label for="reply-channel-select">Канал отправки:</label>
+                                <select id="reply-channel-select">
+                                    <option value="email">✉️ Email</option>
+                                    <option value="whatsapp">💬 WhatsApp</option>
+                                    <option value="telegram">✈️ Telegram</option>
+                                    <option value="sms">📱 SMS</option>
+                                </select>
+                                <input type="text" id="reply-subject-input" placeholder="Тема письма..." />
+                            </div>
+                            <div class="reply-textarea-container">
+                                <textarea id="reply-message-text" rows="2" placeholder="Введите сообщение клиенту (запрос форм T4/T5, ссылка на FileDrop, статус CRA)..."></textarea>
+                                <button id="reply-send-button" class="primary">Отправить через n8n</button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Outbound Reply Box -->
-                    <div class="minicrm-reply-box">
-                        <div class="reply-controls">
-                            <label for="reply-channel-select">Канал отправки:</label>
-                            <select id="reply-channel-select">
-                                <option value="email">✉️ Email</option>
-                                <option value="whatsapp">💬 WhatsApp</option>
-                                <option value="telegram">✈️ Telegram</option>
-                                <option value="sms">📱 SMS</option>
-                            </select>
-                            <input type="text" id="reply-subject-input" placeholder="Тема письма..." />
+                    <!-- WIDGET 2: In-App Files & Documents Explorer -->
+                    <div id="widget-panel-files" class="minicrm-widget-view" style="display: none;">
+                        <div class="widget-files-container">
+                            <!-- Files Action Bar -->
+                            <div class="files-top-toolbar">
+                                <div class="files-path-wrap">
+                                    <span class="files-root-icon">📁</span>
+                                    <span id="files-current-path" class="files-current-path">/Users/—</span>
+                                </div>
+                                <div class="files-toolbar-actions">
+                                    <button type="button" id="btn-refresh-files" class="button button-small" title="Обновить список файлов">
+                                        🔄 Обновить
+                                    </button>
+                                    <label class="button button-small primary file-upload-label" title="Загрузить документ в папку клиента">
+                                        📤 Загрузить файл
+                                        <input type="file" id="files-direct-file-input" multiple style="display: none;" />
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Subfolder Pills / Navigation -->
+                            <div class="files-subfolders-bar" id="files-subfolders-bar">
+                                <button type="button" class="subfolder-pill active" data-subfolder="">📂 Корень папки</button>
+                                <!-- Dynamic subfolder pills like 23_contact_... -->
+                            </div>
+
+                            <!-- FileDrop Quick-Share Card -->
+                            <div class="files-filedrop-banner">
+                                <div class="filedrop-banner-left">
+                                    <span class="filedrop-shield-icon">🔒</span>
+                                    <div>
+                                        <div class="filedrop-banner-title">Безопасный FileDrop портал для клиента (Upload-Only)</div>
+                                        <div class="filedrop-banner-desc">Клиент может безопасно загрузить налоговые документы со смартфона или ПК без пароля</div>
+                                    </div>
+                                </div>
+                                <div class="filedrop-banner-actions">
+                                    <input type="text" readonly id="widget-filedrop-url" class="filedrop-url-input" value="—" />
+                                    <button type="button" id="btn-copy-widget-filedrop" class="button button-small" title="Скопировать ссылку для отправки клиенту">
+                                        📋 Копировать
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Drag-and-Drop Dropzone -->
+                            <div id="files-dropzone" class="files-dropzone">
+                                <div class="dropzone-inner">
+                                    <span class="dropzone-icon">📥</span>
+                                    <div class="dropzone-text">
+                                        <strong>Перетащите файлы CRA сюда</strong> или нажмите для выбора с компьютера
+                                    </div>
+                                    <span class="dropzone-hint">Поддерживаются PDF, JPG, PNG, DOCX, XLSX (T4, T5, NOA, ID, квитанции)</span>
+                                </div>
+                            </div>
+
+                            <!-- File List Table -->
+                            <div class="files-table-wrapper">
+                                <table class="files-table" id="files-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Имя файла</th>
+                                            <th>Категория</th>
+                                            <th>Размер</th>
+                                            <th>Дата загрузки</th>
+                                            <th class="table-actions-header">Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="files-table-body">
+                                        <tr class="files-empty-row">
+                                            <td colspan="5">Загрузка файлов...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="reply-textarea-container">
-                            <textarea id="reply-message-text" rows="2" placeholder="Введите сообщение клиенту (запрос форм T4/T5, ссылка на FileDrop, статус CRA)..."></textarea>
-                            <button id="reply-send-button" class="primary">Отправить через n8n</button>
+                    </div>
+
+                    <!-- WIDGET 3: In-App Contact Card & vCard Editor -->
+                    <div id="widget-panel-contact" class="minicrm-widget-view" style="display: none;">
+                        <div class="widget-contact-container">
+                            <!-- Contact Widget Header -->
+                            <div class="contact-widget-header">
+                                <div class="contact-header-avatar" id="contact-widget-avatar">👤</div>
+                                <div class="contact-header-info">
+                                    <h2 id="contact-widget-fullname">Иван Петров</h2>
+                                    <div class="contact-sync-status-row">
+                                        <span id="contact-sync-badge" class="sync-badge-ok">🟢 CardDAV Синхронизировано</span>
+                                        <button type="button" id="btn-widget-sync-contact" class="btn-text-action">
+                                            🔄 Синхронизировать
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="contact-header-action-save">
+                                    <button type="button" id="btn-widget-save-contact" class="button primary">
+                                        💾 Сохранить изменения
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 2-Column Contact Form -->
+                            <form id="contact-widget-form" class="contact-form-grid" onsubmit="return false;">
+                                <!-- Left Column: Personal & Identity Details -->
+                                <div class="contact-form-section">
+                                    <h4 class="form-section-title">👤 Основные данные клиента</h4>
+
+                                    <div class="form-group">
+                                        <label for="contact-input-fullname">Полное имя (Full Name):</label>
+                                        <input type="text" id="contact-input-fullname" placeholder="Имя и Фамилия" />
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="contact-input-phone">Основной телефон (Phone):</label>
+                                        <div class="input-with-actions">
+                                            <input type="tel" id="contact-input-phone" placeholder="+1403..." />
+                                            <a id="contact-link-call-phone" href="#" class="btn-input-action" title="Позвонить">📞</a>
+                                            <button type="button" id="btn-copy-widget-phone" class="btn-input-action" title="Скопировать">📋</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="contact-input-email">Электронная почта (Email):</label>
+                                        <div class="input-with-actions">
+                                            <input type="email" id="contact-input-email" placeholder="client@example.com" />
+                                            <a id="contact-link-mail-email" href="#" class="btn-input-action" title="Написать email">✉️</a>
+                                            <button type="button" id="btn-copy-widget-email" class="btn-input-action" title="Скопировать">📋</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="contact-input-sin">SIN (Social Insurance Number):</label>
+                                        <div class="input-with-actions">
+                                            <input type="password" id="contact-input-sin" value="841928412" placeholder="***-***-***" />
+                                            <button type="button" id="btn-toggle-widget-sin" class="btn-input-action" title="Показать/скрыть SIN">👁️</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="contact-select-marital">Семейный статус (Marital Status):</label>
+                                        <select id="contact-select-marital">
+                                            <option value="single">Single (Холост / Не замужем)</option>
+                                            <option value="married">Married (В браке)</option>
+                                            <option value="common-law">Common-Law (Фактический брак)</option>
+                                            <option value="separated">Separated (Раздельное проживание)</option>
+                                            <option value="divorced">Divorced (В разводе)</option>
+                                            <option value="widowed">Widowed (Вдовец / Вдова)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column: Canadian CRA Tax Address -->
+                                <div class="contact-form-section">
+                                    <h4 class="form-section-title">🇨🇦 Канадский налоговый адрес (CRA Address)</h4>
+
+                                    <div class="form-group">
+                                        <label for="contact-input-street">Улица и номер дома (Street Address):</label>
+                                        <input type="text" id="contact-input-street" placeholder="e.g. Keystone Grove West" />
+                                    </div>
+
+                                    <div class="form-row-2">
+                                        <div class="form-group">
+                                            <label for="contact-input-apt">Кв. / Unit / Apt:</label>
+                                            <input type="text" id="contact-input-apt" placeholder="Apt 12B" />
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="contact-input-city">Город (City):</label>
+                                            <input type="text" id="contact-input-city" placeholder="Lethbridge" />
+                                        </div>
+                                    </div>
+
+                                    <div class="form-row-2">
+                                        <div class="form-group">
+                                            <label for="contact-select-province">Провинция (Province):</label>
+                                            <select id="contact-select-province">
+                                                <option value="AB">Alberta (AB)</option>
+                                                <option value="BC">British Columbia (BC)</option>
+                                                <option value="MB">Manitoba (MB)</option>
+                                                <option value="NB">New Brunswick (NB)</option>
+                                                <option value="NL">Newfoundland and Labrador (NL)</option>
+                                                <option value="NT">Northwest Territories (NT)</option>
+                                                <option value="NS">Nova Scotia (NS)</option>
+                                                <option value="NU">Nunavut (NU)</option>
+                                                <option value="ON">Ontario (ON)</option>
+                                                <option value="PE">Prince Edward Island (PE)</option>
+                                                <option value="QC">Quebec (QC)</option>
+                                                <option value="SK">Saskatchewan (SK)</option>
+                                                <option value="YT">Yukon (YT)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="contact-input-postal">Почтовый индекс (Postal Code):</label>
+                                            <input type="text" id="contact-input-postal" placeholder="T1J 5E2" maxlength="7" />
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="contact-input-country">Страна (Country):</label>
+                                        <input type="text" id="contact-input-country" value="Canada" readonly />
+                                    </div>
+                                </div>
+
+                                <!-- Full Width: Notes & Tax Details -->
+                                <div class="contact-form-section full-width">
+                                    <h4 class="form-section-title">📝 Заметки бухгалтера и детали декларации</h4>
+                                    <div class="form-group">
+                                        <textarea id="contact-textarea-notes" rows="4" placeholder="Заметки по декларации (иждивенцы, медицинские вычеты, RRSP, CRA NOA и т.д.)..."></textarea>
+                                    </div>
+                                    <div class="contact-form-footer-bar">
+                                        <span id="contact-save-feedback" class="save-feedback-text"></span>
+                                        <button type="button" id="btn-widget-save-contact-bottom" class="button primary">
+                                            💾 Сохранить контакт в Nextcloud
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- WIDGET 4: In-App Deck & Actions Management -->
+                    <div id="widget-panel-actions" class="minicrm-widget-view" style="display: none;">
+                        <div class="widget-actions-container">
+                            <!-- Deck Card Main Widget -->
+                            <div class="deck-widget-card">
+                                <div class="deck-card-top">
+                                    <div class="deck-card-title-block">
+                                        <span class="deck-logo-badge">🎯 Deck</span>
+                                        <h3 id="widget-deck-task-title">Задача #—: Подготовка декларации T1</h3>
+                                    </div>
+                                    <span id="widget-deck-stage-badge" class="status-pill">Scheduled</span>
+                                </div>
+
+                                <!-- Interactive Deck Stage Picker -->
+                                <div class="deck-stages-interactive-box">
+                                    <div class="stages-box-label">Этап карточки в Nextcloud Deck / CRA Workflow:</div>
+                                    <div class="deck-stages-pills-row" id="deck-stages-selector">
+                                        <button type="button" class="deck-stage-btn" data-status="scheduled">
+                                            📥 1. Intake (Запись)
+                                        </button>
+                                        <button type="button" class="deck-stage-btn" data-status="docs_gathering">
+                                            📑 2. Сбор документов
+                                        </button>
+                                        <button type="button" class="deck-stage-btn" data-status="tax_prep">
+                                            🧮 3. Расчёт (Tax Prep)
+                                        </button>
+                                        <button type="button" class="deck-stage-btn" data-status="t183_review">
+                                            ✍️ 4. Подпись T183
+                                        </button>
+                                        <button type="button" class="deck-stage-btn" data-status="efile_submitted">
+                                            🚀 5. CRA EFILE
+                                        </button>
+                                        <button type="button" class="deck-stage-btn" data-status="completed">
+                                            ✅ 6. Завершено
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Deck Details Grid -->
+                                <div class="deck-meta-grid">
+                                    <div class="deck-meta-item">
+                                        <span class="meta-item-label">📅 Время консультации / приёма:</span>
+                                        <span id="widget-deck-meeting-time" class="meta-item-val">—</span>
+                                    </div>
+                                    <div class="deck-meta-item">
+                                        <span class="meta-item-label">👤 Ответственный специалист:</span>
+                                        <span id="widget-deck-provider" class="meta-item-val">contact violatax.ca</span>
+                                    </div>
+                                    <div class="deck-meta-item">
+                                        <span class="meta-item-label">🏷️ Источник лида:</span>
+                                        <span id="widget-deck-source" class="meta-item-val">EasyAppointments (#23)</span>
+                                    </div>
+                                    <div class="deck-meta-item">
+                                        <span class="meta-item-label">📁 Папка документов:</span>
+                                        <span id="widget-deck-folder" class="meta-item-val">/Users/...</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quick Action Logger -->
+                            <div class="quick-action-log-card">
+                                <h4 class="card-subtitle">⚡ Зафиксировать действие или контакт с клиентом</h4>
+                                <div class="log-action-inputs">
+                                    <select id="log-action-type-select">
+                                        <option value="call">📞 Телефонный звонок</option>
+                                        <option value="docs_request">📑 Запрос документов T4/T5</option>
+                                        <option value="consultation">💬 Консультация по налогам</option>
+                                        <option value="note">📝 Заметка бухгалтера</option>
+                                    </select>
+                                    <input type="text" id="log-action-desc-input" placeholder="Краткое описание действия..." />
+                                    <button type="button" id="btn-log-action-submit" class="button primary">
+                                        ➕ Добавить
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- All Activities Stream -->
+                            <div class="activities-history-block">
+                                <h4 class="card-subtitle">📋 История всех активностей клиента</h4>
+                                <div id="widget-activities-list" class="activities-cards-list">
+                                    <!-- Dynamic activity items -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

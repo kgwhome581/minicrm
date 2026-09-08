@@ -23,6 +23,7 @@ use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\DataResponse;
+use OCP\AppFramework\Http\Response;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -288,27 +289,68 @@ class ApiController extends BaseApiController {
                 $client->setNotes((string)$notes);
             }
 
+            // Process Canadian Tax Address fields
+            $street = $this->request->getParam('street');
+            $city = $this->request->getParam('city');
+            $province = $this->request->getParam('province') ?? $this->request->getParam('state');
+            $postalCode = $this->request->getParam('postal_code');
+            $country = $this->request->getParam('country', 'Canada');
+
+            $extraAddress = [];
+            if (!empty($street)) $extraAddress['street'] = trim((string)$street);
+            if (!empty($city)) $extraAddress['city'] = trim((string)$city);
+            if (!empty($province)) $extraAddress['state'] = trim((string)$province);
+            if (!empty($postalCode)) $extraAddress['postal_code'] = trim((string)$postalCode);
+            if (!empty($country)) $extraAddress['country'] = trim((string)$country);
+
+            if (!empty($extraAddress)) {
+                $addrString = implode(', ', array_filter([$street, $city, $province, $postalCode, $country]));
+                $currNotes = (string)($client->getNotes() ?? '');
+                if (preg_match('/(?:Адрес|Address):\s*([^\r\n]+)/iu', $currNotes)) {
+                    $currNotes = preg_replace('/(?:Адрес|Address):\s*([^\r\n]+)/iu', "Адрес: {$addrString}", $currNotes);
+                } else {
+                    $currNotes = (empty($currNotes) ? '' : $currNotes . "\n") . "Адрес: {$addrString}";
+                }
+                $client->setNotes($currNotes);
+            }
+
             $client->setUpdatedAt(new DateTime('now'));
             $saved = $this->clientMapper->update($client);
 
             // Sync updated contact into Nextcloud Contacts
+            $syncedContact = null;
             if ($this->contactBridge !== null) {
                 try {
                     $activities = $this->activityMapper->findByClientId($id);
                     $responsibleUser = (!empty($activities) && !empty($activities[0]->getResponsibleUser()))
                         ? $activities[0]->getResponsibleUser()
                         : 'admin';
-                    $this->contactBridge->syncContact(
+                    $syncedContact = $this->contactBridge->syncContact(
                         $responsibleUser,
                         $saved,
-                        $saved->getFolderPath() ? '/apps/files/?dir=' . urlencode($saved->getFolderPath()) : null
+                        $saved->getFolderPath() ? '/apps/files/?dir=' . urlencode($saved->getFolderPath()) : null,
+                        $extraAddress
                     );
                 } catch (\Exception $e) {
                     $this->logger->debug('Contact sync during client update: ' . $e->getMessage(), ['app' => 'minicrm']);
                 }
             }
 
-            return new DataResponse($saved->jsonSerialize(), Http::STATUS_OK);
+            $contactCard = $this->contactBridge
+                ? $this->contactBridge->getContactInfo(
+                    $saved->getUuid(),
+                    $saved->getEmail(),
+                    $saved->getPhone(),
+                    $saved->getFullName(),
+                    $saved->getNotes()
+                )
+                : null;
+
+            return new DataResponse([
+                'status' => 'success',
+                'client' => $saved->jsonSerialize(),
+                'contact_card' => $contactCard,
+            ], Http::STATUS_OK);
         } catch (\Exception $e) {
             return new DataResponse(['error' => 'Client not found or update failed: ' . $e->getMessage()], Http::STATUS_NOT_FOUND);
         }
@@ -639,6 +681,163 @@ class ApiController extends BaseApiController {
             curl_close($ch);
         } catch (\Exception $e) {
             $this->logger->warning('Failed to dispatch to n8n webhook: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * GET /api/v1/clients/{id}/files
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     * @PublicPage
+     */
+    #[NoCSRFRequired]
+    #[NoAdminRequired]
+    #[PublicPage]
+    public function getClientFiles(int $id): DataResponse {
+        if (!$this->isAuthorized()) {
+            return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $client = $this->clientMapper->find($id);
+            $subpath = (string)$this->request->getParam('subpath', '');
+            $filesData = $this->folderService->listClientFiles($client, $subpath);
+
+            $activities = $this->activityMapper->findByClientId($id);
+            $latestActivity = !empty($activities) ? $activities[0] : null;
+
+            return new DataResponse([
+                'client_id' => $id,
+                'folder_path' => $filesData['folder_path'] ?? $client->getFolderPath(),
+                'current_subpath' => $filesData['current_subpath'] ?? '',
+                'all_subfolders' => $filesData['all_subfolders'] ?? [],
+                'files' => $filesData['files'] ?? [],
+                'folders' => $filesData['folders'] ?? [],
+                'file_drop_url' => $latestActivity?->getFileDropUrl() ?? '',
+            ], Http::STATUS_OK);
+        } catch (\Throwable $e) {
+            return new DataResponse(['error' => $e->getMessage()], Http::STATUS_NOT_FOUND);
+        }
+    }
+
+    /**
+     * POST /api/v1/clients/{id}/files/upload
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     * @PublicPage
+     */
+    #[NoCSRFRequired]
+    #[NoAdminRequired]
+    #[PublicPage]
+    public function uploadClientFile(int $id): DataResponse {
+        if (!$this->isAuthorized()) {
+            return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $client = $this->clientMapper->find($id);
+            $uploaded = $this->request->getUploadedFile('file');
+            if (empty($uploaded) || !isset($uploaded['tmp_name']) || empty($uploaded['tmp_name'])) {
+                if (!empty($_FILES['file']['tmp_name'])) {
+                    $uploaded = $_FILES['file'];
+                } else {
+                    return new DataResponse(['error' => 'No file uploaded'], Http::STATUS_BAD_REQUEST);
+                }
+            }
+
+            $fileName = $uploaded['name'] ?? 'document.pdf';
+            $tmpPath = $uploaded['tmp_name'];
+            $subFolder = (string)$this->request->getParam('subfolder', '');
+
+            $result = $this->folderService->uploadClientFile($client, $fileName, $tmpPath, $subFolder);
+            return new DataResponse([
+                'status' => 'success',
+                'file' => $result,
+            ], Http::STATUS_CREATED);
+        } catch (\Throwable $e) {
+            return new DataResponse(['error' => 'Upload failed: ' . $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GET /api/v1/clients/{id}/files/download
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     * @PublicPage
+     */
+    #[NoCSRFRequired]
+    #[NoAdminRequired]
+    #[PublicPage]
+    public function downloadClientFile(int $id): Response {
+        if (!$this->isAuthorized()) {
+            $err = new DataResponse(['error' => 'Unauthorized'], Http::STATUS_UNAUTHORIZED);
+            return $err;
+        }
+
+        try {
+            $client = $this->clientMapper->find($id);
+            $fileName = (string)$this->request->getParam('name', '');
+            $subFolder = (string)$this->request->getParam('subfolder', '');
+
+            if (empty($fileName)) {
+                return new DataResponse(['error' => 'name is required'], Http::STATUS_BAD_REQUEST);
+            }
+
+            $fileNode = $this->folderService->getClientFileNode($client, $fileName, $subFolder);
+            if ($fileNode === null) {
+                return new DataResponse(['error' => 'File not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            $content = $fileNode->getContent();
+            $mime = $fileNode->getMimetype() ?: 'application/octet-stream';
+            $downloadName = basename($fileNode->getName());
+
+            $response = new Response();
+            $response->addHeader('Content-Type', $mime);
+            $response->addHeader('Content-Disposition', 'attachment; filename="' . addslashes($downloadName) . '"');
+            $response->addHeader('Content-Length', (string)strlen($content));
+            $response->setOutput($content);
+
+            return $response;
+        } catch (\Throwable $e) {
+            return new DataResponse(['error' => 'Download error: ' . $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * POST /api/v1/clients/{id}/files/delete
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     * @PublicPage
+     */
+    #[NoCSRFRequired]
+    #[NoAdminRequired]
+    #[PublicPage]
+    public function deleteClientFile(int $id): DataResponse {
+        if (!$this->isAuthorized()) {
+            return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $client = $this->clientMapper->find($id);
+            $fileName = (string)$this->request->getParam('name', '');
+            $subFolder = (string)$this->request->getParam('subfolder', '');
+
+            if (empty($fileName)) {
+                return new DataResponse(['error' => 'name is required'], Http::STATUS_BAD_REQUEST);
+            }
+
+            $success = $this->folderService->deleteClientFile($client, $fileName, $subFolder);
+            if ($success) {
+                return new DataResponse(['status' => 'success'], Http::STATUS_OK);
+            }
+            return new DataResponse(['error' => 'File not found or cannot delete'], Http::STATUS_NOT_FOUND);
+        } catch (\Throwable $e) {
+            return new DataResponse(['error' => 'Delete failed: ' . $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
 

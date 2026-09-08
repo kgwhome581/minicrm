@@ -96,17 +96,69 @@ class IngestionService {
             $addrDisplayParts = array_filter([$street, $city, $state, $postalCode, $country]);
             $formattedAddress = implode(', ', $addrDisplayParts);
 
-            // 5. Notes, Service & Appointment Metadata
+            // 5. Notes, Service, Provider & Appointment Metadata
             $rawNotes = trim((string)($data['notes'] ?? ''));
             $aptNotes = trim((string)($data['appointment_notes'] ?? ''));
             $custNotes = trim((string)($data['customer_notes'] ?? ''));
             $serviceName = trim((string)($data['service_name'] ?? ''));
-            $servicePrice = trim((string)($data['service_price'] ?? ''));
+            $servicePrice = isset($data['service_price']) ? (string)$data['service_price'] : '';
+            $serviceDuration = isset($data['service_duration']) ? (int)$data['service_duration'] : 60;
             $appointmentId = $data['appointment_id'] ?? null;
+            $customerId = $data['customer_id'] ?? null;
+
+            $bookDatetime = $data['book_datetime'] ?? $data['create_datetime'] ?? null;
+            $startDatetime = $data['start_datetime'] ?? $data['meeting_datetime'] ?? null;
+            $endDatetime = $data['end_datetime'] ?? null;
+            if (empty($endDatetime) && !empty($startDatetime)) {
+                try {
+                    $st = new DateTime($startDatetime);
+                    $endDatetime = (clone $st)->modify("+{$serviceDuration} minutes")->format('Y-m-d H:i:s');
+                } catch (\Throwable) {}
+            }
+
+            // Provider mapping (support provider_first_name + provider_last_name)
+            $providerFirst = trim((string)($data['provider_first_name'] ?? ''));
+            $providerLast = trim((string)($data['provider_last_name'] ?? ''));
+            $providerFullName = trim($providerFirst . ' ' . $providerLast);
+
+            // Responsible specialist & Source
+            $responsibleUser = !empty($data['responsible_specialist'])
+                ? (string)$data['responsible_specialist']
+                : (!empty($providerFullName) ? $providerFullName : 'admin');
+            $source = $data['source'] ?? 'easypoint';
 
             $notesList = [];
-            if (!empty($rawNotes)) {
-                $notesList[] = $rawNotes;
+            if (!empty($serviceName)) {
+                $srvText = "Услуга: " . $serviceName;
+                if (!empty($servicePrice)) {
+                    $srvText .= " ($" . $servicePrice . ")";
+                }
+                if (!empty($serviceDuration)) {
+                    $srvText .= " [" . $serviceDuration . " мин]";
+                }
+                $notesList[] = $srvText;
+            }
+            if (!empty($formattedAddress)) {
+                $notesList[] = "Адрес: " . $formattedAddress;
+            }
+            if (!empty($startDatetime)) {
+                $timeRange = $startDatetime;
+                if (!empty($endDatetime)) {
+                    $timeRange .= " — " . $endDatetime;
+                }
+                $notesList[] = "Время встречи: " . $timeRange;
+            }
+            if (!empty($bookDatetime)) {
+                $notesList[] = "Дата записи: " . $bookDatetime;
+            }
+            if (!empty($providerFullName)) {
+                $notesList[] = "Специалист: " . $providerFullName;
+            }
+            if (!empty($appointmentId)) {
+                $notesList[] = "Appointment ID: #" . $appointmentId;
+            }
+            if (!empty($customerId)) {
+                $notesList[] = "Customer ID: #" . $customerId;
             }
             if (!empty($aptNotes)) {
                 $notesList[] = "Заметки встречи: " . $aptNotes;
@@ -114,25 +166,10 @@ class IngestionService {
             if (!empty($custNotes)) {
                 $notesList[] = "Заметки клиента: " . $custNotes;
             }
-            if (!empty($serviceName)) {
-                $srvText = "Услуга: " . $serviceName;
-                if (!empty($servicePrice)) {
-                    $srvText .= " ($" . $servicePrice . ")";
-                }
-                $notesList[] = $srvText;
-            }
-            if (!empty($formattedAddress)) {
-                $notesList[] = "Адрес: " . $formattedAddress;
-            }
-            if (!empty($appointmentId)) {
-                $notesList[] = "Appointment ID: #" . $appointmentId;
+            if (!empty($rawNotes) && $rawNotes !== $aptNotes && $rawNotes !== $custNotes) {
+                $notesList[] = $rawNotes;
             }
             $notes = implode("\n", $notesList);
-
-            // 6. Responsible specialist & Source
-            $responsibleUser = $data['responsible_specialist'] ?? 'admin';
-            $source = $data['source'] ?? 'easypoint';
-            $customerId = $data['customer_id'] ?? null;
 
             // 7. Resolve or Create Client (Deduplication: customer_id identity -> phone -> email)
             $isNewClient = false;
@@ -306,13 +343,15 @@ class IngestionService {
                 $stackId
             );
 
-            // 13. Sync Contact into Nextcloud Contacts module WITH ADDRESS
+            // 13. Sync Contact into Nextcloud Contacts module WITH ADDRESS, SERVICE & PROVIDER
             $contactInfo = null;
             try {
                 $addressArray['customer_id'] = $customerId;
                 $addressArray['customer_mini_crm_id'] = $client->getId();
                 $addressArray['deck_task_id'] = $deckTaskId;
                 $addressArray['folder_path'] = $folderInfo['folder_path'] ?? null;
+                $addressArray['title'] = $serviceName ?: null;
+                $addressArray['company'] = $providerFullName ?: null;
 
                 $contactInfo = $this->contactBridge->syncContact(
                     $responsibleUser,
@@ -375,10 +414,44 @@ class IngestionService {
 
             $this->db->commit();
 
-            return [
+            // 17. Return comprehensive response preserving all incoming lead/booking fields
+            $response = [
                 'status' => 'success',
                 'is_new_client' => $isNewClient,
                 'customer_mini_crm_id' => (int)$client->getId(),
+
+                // EasyAppointments booking & appointment fields
+                'appointment_id' => $appointmentId !== null ? (int)$appointmentId : ($data['appointment_id'] ?? null),
+                'create_datetime' => $data['create_datetime'] ?? null,
+                'update_datetime' => $data['update_datetime'] ?? null,
+                'book_datetime' => $bookDatetime,
+                'start_datetime' => $startDatetime,
+                'end_datetime' => $endDatetime,
+                'location' => $data['location'] ?? null,
+                'appointment_notes' => !empty($aptNotes) ? $aptNotes : ($data['appointment_notes'] ?? ''),
+                'hash' => $data['hash'] ?? null,
+                'color' => $data['color'] ?? null,
+                'booking_status' => $data['status'] ?? 'Booked',
+                'is_unavailability' => isset($data['is_unavailability']) ? (int)$data['is_unavailability'] : 0,
+
+                // EasyAppointments customer fields
+                'customer_id' => $customerId !== null ? (int)$customerId : ($data['customer_id'] ?? null),
+                'customer_first_name' => $firstName ?: ($data['customer_first_name'] ?? ''),
+                'customer_last_name' => $lastName ?: ($data['customer_last_name'] ?? ''),
+                'customer_email' => $email ?: ($data['customer_email'] ?? ''),
+                'customer_phone' => $rawPhone ?: ($data['customer_phone'] ?? ''),
+                'customer_address' => $street ?: ($data['customer_address'] ?? ''),
+                'customer_city' => $city ?: ($data['customer_city'] ?? ''),
+                'customer_zip_code' => $postalCode ?: ($data['customer_zip_code'] ?? ''),
+
+                // EasyAppointments provider & service fields
+                'provider_first_name' => $providerFirst ?: ($data['provider_first_name'] ?? ''),
+                'provider_last_name' => $providerLast ?: ($data['provider_last_name'] ?? ''),
+                'service_name' => $serviceName ?: ($data['service_name'] ?? ''),
+                'service_duration' => $serviceDuration,
+                'service_price' => !empty($servicePrice) ? (string)$servicePrice : ($data['service_price'] ?? ''),
+
+                // MiniCRM entities & Nextcloud artifacts
                 'client' => $client->jsonSerialize(),
                 'activity' => $activity->jsonSerialize(),
                 'customer_file_path' => $folderInfo['folder_path'],
@@ -389,6 +462,15 @@ class IngestionService {
                 'calendar_event_id' => $calendarEventId,
                 'contact' => $contactInfo,
             ];
+
+            // Retain any other incoming fields passed in by caller
+            foreach ($data as $key => $val) {
+                if (!array_key_exists($key, $response)) {
+                    $response[$key] = $val;
+                }
+            }
+
+            return $response;
         } catch (\Throwable $e) {
             $this->db->rollBack();
             $this->logger->error('Failed to ingest lead: ' . $e->getMessage(), [

@@ -10,7 +10,7 @@
         with public file drop links, coordinates Nextcloud Calendar events, creates Deck cards, and
         provides a multichannel communication timeline.
     </description>
-    <version>1.1.3</version>
+    <version>1.1.4</version>
     <licence>agpl</licence>
     <author>ViolaTax</author>
     <category>organization</category>

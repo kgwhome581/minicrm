@@ -317,10 +317,14 @@ class ApiController extends BaseApiController {
             $company = $this->request->getParam('company');
             $website = $this->request->getParam('website');
             $emailType = $this->request->getParam('email_type');
+            $customFields = $this->request->getParam('custom_fields');
             if (!empty($title)) $extraAddress['title'] = trim((string)$title);
             if (!empty($company)) $extraAddress['company'] = trim((string)$company);
             if (!empty($website)) $extraAddress['website'] = trim((string)$website);
             if (!empty($emailType)) $extraAddress['email_type'] = trim((string)$emailType);
+            if (is_array($customFields)) {
+                $extraAddress['custom_fields'] = $customFields;
+            }
 
             if (!empty($extraAddress) || !empty($rawAddressInput)) {
                 $addrString = !empty($rawAddressInput)
@@ -366,6 +370,10 @@ class ApiController extends BaseApiController {
                     $saved->getNotes()
                 )
                 : null;
+
+            if (is_array($contactCard) && (empty($contactCard['custom_fields']) || count((array)$contactCard['custom_fields']) === 0) && is_array($customFields)) {
+                $contactCard['custom_fields'] = $customFields;
+            }
 
             return new DataResponse([
                 'status' => 'success',

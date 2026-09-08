@@ -174,6 +174,21 @@ class ContactBridgeService {
             if (!empty($notes)) {
                 $vcard .= "NOTE:{$this->escapeVcardString($notes)}\r\n";
             }
+
+            $customFields = $extra['custom_fields'] ?? [];
+            if (is_array($customFields) && !empty($customFields)) {
+                $vcard .= "X-MINICRM-CUSTOM:" . $this->escapeVcardString((string)json_encode($customFields, JSON_UNESCAPED_UNICODE)) . "\r\n";
+                $itemIdx = 1;
+                foreach ($customFields as $ckey => $cval) {
+                    if (trim((string)$ckey) === '') continue;
+                    $escK = $this->escapeVcardString((string)$ckey);
+                    $escV = $this->escapeVcardString((string)$cval);
+                    $vcard .= "item{$itemIdx}.X-ABLABEL:{$escK}\r\n";
+                    $vcard .= "item{$itemIdx}.X-ABRELATEDNAMES:{$escV}\r\n";
+                    $itemIdx++;
+                }
+            }
+
             $vcard .= "CATEGORIES:Clients\r\n" .
                 "REV:{$nowUtc}\r\n" .
                 "END:VCARD\r\n";
@@ -395,6 +410,7 @@ class ContactBridgeService {
                     'groups' => !empty($parsed['groups']) ? $parsed['groups'] : ['Clients'],
                     'last_modified' => (int)($card['lastmodified'] ?? 0),
                     'notes' => $resNotes,
+                    'custom_fields' => !empty($parsed['custom_fields']) ? $parsed['custom_fields'] : (object)[],
                 ];
             }
         } catch (\Throwable $e) {
@@ -420,6 +436,7 @@ class ContactBridgeService {
                 'groups' => ['Clients'],
                 'last_modified' => time(),
                 'notes' => $fallbackNotes ?: "Услуга: T1 Personal Return ($150)\nАдрес: Keystone Grove West, Lethbridge, AB, T1J 5E2, Canada\nВремя встречи: 2026-09-11 09:00:00 — 2026-09-11 10:00:00\nСпециалист: Igor Mishchenko",
+                'custom_fields' => (object)[],
             ];
         }
 
@@ -440,6 +457,7 @@ class ContactBridgeService {
             'groups' => ['Clients'],
             'last_modified' => time(),
             'notes' => $fallbackNotes,
+            'custom_fields' => (object)[],
         ];
     }
 
@@ -594,6 +612,31 @@ class ContactBridgeService {
             $cleanCompany = trim(str_replace(['\;', '\,'], [';', ','], $orgMatch[1]));
             if (!empty($cleanCompany)) {
                 $result['company'] = $cleanCompany;
+            }
+        }
+
+        // 9. Custom fields (X-MINICRM-CUSTOM or itemN.X-ABLABEL)
+        $result['custom_fields'] = [];
+        if (preg_match('/^X-MINICRM-CUSTOM[^:]*:(.*)$/mi', (string)$unfolded, $customMatch)) {
+            $jsonRaw = trim(str_replace(['\;', '\,'], [';', ','], $customMatch[1]));
+            $decoded = json_decode($jsonRaw, true);
+            if (is_array($decoded)) {
+                $result['custom_fields'] = $decoded;
+            }
+        }
+
+        if (empty($result['custom_fields'])) {
+            if (preg_match_all('/^(item\d+)\.X-ABLABEL[^:]*:(.*)$/mi', (string)$unfolded, $labelMatches, PREG_SET_ORDER)) {
+                foreach ($labelMatches as $m) {
+                    $itemPrefix = $m[1];
+                    $label = trim(str_replace(['\;', '\,'], [';', ','], $m[2]));
+                    if (preg_match('/^' . preg_quote($itemPrefix, '/') . '\.X-ABRELATEDNAMES[^:]*:(.*)$/mi', (string)$unfolded, $valMatch)) {
+                        $val = trim(str_replace(['\;', '\,'], [';', ','], $valMatch[1]));
+                        if ($label !== '') {
+                            $result['custom_fields'][$label] = $val;
+                        }
+                    }
+                }
             }
         }
 

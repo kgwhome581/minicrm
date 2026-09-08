@@ -280,7 +280,9 @@ style('minicrm', 'minicrm-style');
                                             </div>
                                         </div>
 
-                                        <div class="nc-contact-lastmod" id="nc-view-lastmod">Last modified recently</div>
+                                        <!-- Dynamic Custom Fields Container (View Mode) -->
+                                         <div id="nc-view-custom-fields-container"></div>
+                                         <div class="nc-contact-lastmod" id="nc-view-lastmod">Last modified recently</div>
                                     </div>
 
                                     <!-- Right Column: Shared Items Placeholder (Matches Screenshot 2) -->

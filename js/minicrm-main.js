@@ -258,9 +258,11 @@
             }
 
             // Contact Widget: Toggle "Add more info" Context Menu
-            if (e.target.closest('#nc-btn-add-more-info')) {
+            const addMoreBtn = e.target.closest('#nc-btn-add-more-info');
+            if (addMoreBtn) {
                 e.preventDefault();
-                const menu = document.getElementById('nc-add-more-menu');
+                const wrap = addMoreBtn.closest('.nc-add-more-wrap') || addMoreBtn.parentNode;
+                const menu = getOrCreateAddMoreMenu(wrap);
                 if (menu) {
                     menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
                 }
@@ -1325,6 +1327,27 @@
                 });
             }
         }
+    }
+
+    function getOrCreateAddMoreMenu(wrapEl) {
+        let menu = document.getElementById('nc-add-more-menu');
+        if (!menu && wrapEl) {
+            menu = document.createElement('div');
+            menu.id = 'nc-add-more-menu';
+            menu.className = 'nc-add-more-menu';
+            menu.style.display = 'none';
+            menu.innerHTML = `
+                <div class="nc-menu-item" data-field-key="Birthday"><span class="nc-menu-icon">🎂</span> Birthday</div>
+                <div class="nc-menu-item" data-field-key="Organization"><span class="nc-menu-icon">🏢</span> Organization</div>
+                <div class="nc-menu-item" data-field-key="Job Title"><span class="nc-menu-icon">💼</span> Job Title</div>
+                <div class="nc-menu-item" data-field-key="SIN / Tax ID"><span class="nc-menu-icon">🆔</span> SIN / Tax ID</div>
+                <div class="nc-menu-item" data-field-key="Spouse"><span class="nc-menu-icon">👨‍👩‍👧</span> Spouse / Family</div>
+                <div class="nc-menu-divider"></div>
+                <div class="nc-menu-item" data-field-key=""><span class="nc-menu-icon">➕</span> Custom Field...</div>
+            `;
+            wrapEl.appendChild(menu);
+        }
+        return menu;
     }
 
     function addCustomFieldRow(key = '', val = '') {

@@ -176,10 +176,7 @@ style('minicrm', 'minicrm-style');
                                                 </button>
                                             </div>
                                         </div>
-                                        <div class="nc-contact-quick-row">
-                                            <span id="nc-view-title-company" class="nc-contact-subtext">—</span>
-                                            <a id="nc-view-quick-mail" href="#" class="nc-quick-btn-mail" title="Отправить email">✉️</a>
-                                        </div>
+
                                     </div>
                                 </div>
 

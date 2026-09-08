@@ -303,6 +303,15 @@ class ApiController extends BaseApiController {
             if (!empty($postalCode)) $extraAddress['postal_code'] = trim((string)$postalCode);
             if (!empty($country)) $extraAddress['country'] = trim((string)$country);
 
+            $title = $this->request->getParam('title');
+            $company = $this->request->getParam('company');
+            $website = $this->request->getParam('website');
+            $emailType = $this->request->getParam('email_type');
+            if (!empty($title)) $extraAddress['title'] = trim((string)$title);
+            if (!empty($company)) $extraAddress['company'] = trim((string)$company);
+            if (!empty($website)) $extraAddress['website'] = trim((string)$website);
+            if (!empty($emailType)) $extraAddress['email_type'] = trim((string)$emailType);
+
             if (!empty($extraAddress)) {
                 $addrString = implode(', ', array_filter([$street, $city, $province, $postalCode, $country]));
                 $currNotes = (string)($client->getNotes() ?? '');

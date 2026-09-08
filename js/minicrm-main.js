@@ -95,9 +95,6 @@
             });
         }
 
-        // Setup embedded Nextcloud Contacts iframe load listener
-        setupContactIframeListener();
-
         // Global click listener with event delegation - ensures 100% reliable button clicks
         document.addEventListener('click', (e) => {
             // 1. Header action buttons (Contact, Files, Deck)
@@ -152,23 +149,88 @@
                 return;
             }
 
-            // Refresh embedded Nextcloud Contacts iframe
-            if (e.target.closest('#btn-refresh-contact-iframe') || e.target.closest('#btn-refresh-contact-card')) {
+            // Contact Widget: Trigger Edit Mode
+            if (e.target.closest('#nc-btn-trigger-edit')) {
                 e.preventDefault();
-                const iframe = document.getElementById('contact-app-iframe');
-                if (iframe && iframe.dataset.currentSrc) {
-                    iframe.src = iframe.dataset.currentSrc;
-                } else if (currentClientId) {
-                    selectClient(currentClientId);
-                }
+                showContactEditMode();
                 return;
             }
 
-            // Manual sync contact widget button
-            const widgetSyncBtn = e.target.closest('#btn-widget-sync-contact');
-            if (widgetSyncBtn) {
+            // Contact Widget: Cancel Edit Mode
+            if (e.target.closest('#nc-btn-cancel-contact')) {
                 e.preventDefault();
-                handleSyncContact(widgetSyncBtn);
+                showContactViewMode();
+                return;
+            }
+
+            // Contact Widget: Save Contact
+            if (e.target.closest('#nc-btn-save-contact')) {
+                e.preventDefault();
+                handleSaveContact();
+                return;
+            }
+
+            // Contact Widget: Copy Email (View Mode)
+            const copyContactEmailBtn = e.target.closest('#nc-btn-copy-email');
+            if (copyContactEmailBtn) {
+                e.preventDefault();
+                copyText('nc-view-email-val', copyContactEmailBtn);
+                return;
+            }
+
+            // Contact Widget: Copy Phone (View Mode)
+            const copyContactPhoneBtn = e.target.closest('#nc-btn-copy-phone');
+            if (copyContactPhoneBtn) {
+                e.preventDefault();
+                copyText('nc-view-phone-val', copyContactPhoneBtn);
+                return;
+            }
+
+            // Contact Widget: Clear input helpers (Edit Mode)
+            if (e.target.closest('#nc-btn-clear-email')) {
+                e.preventDefault();
+                const input = document.getElementById('nc-input-email');
+                if (input) { input.value = ''; input.focus(); }
+                return;
+            }
+
+            if (e.target.closest('#nc-btn-clear-phone')) {
+                e.preventDefault();
+                const input = document.getElementById('nc-input-phone');
+                if (input) { input.value = ''; input.focus(); }
+                return;
+            }
+
+            if (e.target.closest('#nc-btn-clear-website')) {
+                e.preventDefault();
+                const input = document.getElementById('nc-input-website');
+                if (input) { input.value = ''; input.focus(); }
+                return;
+            }
+
+            if (e.target.closest('#nc-btn-clear-notes')) {
+                e.preventDefault();
+                const input = document.getElementById('nc-input-notes');
+                if (input) { input.value = ''; input.focus(); }
+                return;
+            }
+
+            // Contact Widget: Focus input on Add (+) button
+            if (e.target.closest('#nc-btn-add-email')) {
+                e.preventDefault();
+                document.getElementById('nc-input-email')?.focus();
+                return;
+            }
+
+            if (e.target.closest('#nc-btn-add-phone')) {
+                e.preventDefault();
+                document.getElementById('nc-input-phone')?.focus();
+                return;
+            }
+
+            if (e.target.closest('#nc-btn-add-website')) {
+                e.preventDefault();
+                document.getElementById('nc-input-website')?.focus();
                 return;
             }
 
@@ -491,52 +553,12 @@
             deckIdSpan.textContent = deckId ? (String(deckId).startsWith('#') ? deckId : `#${deckId}`) : '';
         }
 
-        // 5. Toolkit: CRA Slips Checklist
-        loadChecklistState(client.id);
-
-        // 6. Toolkit: FileDrop link
-        const fileDropInput = document.getElementById('toolkit-filedrop-input');
-        const fileDropOpenLink = document.getElementById('link-open-toolkit-filedrop');
-        const fileDropUrl = latestActivity?.file_drop_url || (client.folder_path ? OC.generateUrl(`/apps/files/?dir=${encodeURIComponent(client.folder_path)}`) : '');
-        if (fileDropInput) fileDropInput.value = fileDropUrl || 'Ссылка не сформирована';
-        if (fileDropOpenLink) {
-            if (fileDropUrl) {
-                fileDropOpenLink.href = fileDropUrl;
-                fileDropOpenLink.style.display = 'inline-flex';
-            } else {
-                fileDropOpenLink.style.display = 'none';
-            }
-        }
-
-        // 7. Toolkit: PIPEDA Compliance Card & SIN
-        sinRevealed = false;
-        updateSinDisplay(client.id);
-        const provEl = document.getElementById('pipeda-province-value');
-        if (provEl) provEl.textContent = (cityProv.includes('AB') || cityProv.toLowerCase().includes('alberta')) ? 'Alberta (AB)' : cityProv;
-
-        // 8. Toolkit: Appointment Card
-        const eaServEl = document.getElementById('ea-service-name');
-        if (eaServEl) eaServEl.textContent = serviceName;
-
-        const eaTimeEl = document.getElementById('ea-appointment-time');
-        const meetingMatch = notes.match(/Appointment Time:\s*([^\r\n]+)/i);
-        const meetingTime = latestActivity?.meeting_time ? formatDateTime(latestActivity.meeting_time) : (meetingMatch ? meetingMatch[1].trim() : '—');
-        if (eaTimeEl) eaTimeEl.textContent = meetingTime;
-
-        const eaProvEl = document.getElementById('ea-provider-name');
-        const provMatch = notes.match(/Provider:\s*([^\r\n]+)/i);
-        const providerName = latestActivity?.responsible_user || (provMatch ? provMatch[1].trim() : 'contact violatax.ca');
-        if (eaProvEl) eaProvEl.textContent = providerName;
-
-        // 9. CRA Lifecycle Stepper State
-        const savedStep = localStorage.getItem(`minicrm_cra_step_${client.id}`) || '2';
-        setCraStep(parseInt(savedStep, 10), false);
-
-        // 10. Update and populate active in-app widgets
+        // 5. Update and populate active in-app widgets
         populateContactWidget();
         populateActionsWidget();
         loadClientFiles(client.id, activeSubfolder);
         switchWidget(activeWidget);
+
     }
 
 
@@ -942,40 +964,65 @@
         return `Last modified ${days} day${days > 1 ? 's' : ''} ago`;
     }
 
-    function setupContactIframeListener() {
-        const iframe = document.getElementById('contact-app-iframe');
-        if (!iframe || iframe.dataset.listenerAttached) return;
-        iframe.dataset.listenerAttached = 'true';
+    function showContactViewMode() {
+        const viewEl = document.getElementById('nc-contact-view');
+        const editEl = document.getElementById('nc-contact-edit');
+        if (viewEl) viewEl.style.display = 'block';
+        if (editEl) editEl.style.display = 'none';
+    }
 
-        iframe.addEventListener('load', () => {
-            try {
-                const doc = iframe.contentDocument || iframe.contentWindow?.document;
-                if (!doc) return;
+    function showContactEditMode() {
+        if (!currentClientData || !currentClientData.client) return;
+        const client = currentClientData.client;
+        const contactCard = currentClientData.contact_card || {};
 
-                const styleId = 'minicrm-iframe-cleaner-style';
-                if (!doc.getElementById(styleId)) {
-                    const style = doc.createElement('style');
-                    style.id = styleId;
-                    style.textContent = `
-                        #header, header#header, .header-menu, #skip-navigation, .skip-navigation {
-                            display: none !important;
-                        }
-                        #content, #content-vue, .app-contacts, #app-content {
-                            top: 0 !important;
-                            margin-top: 0 !important;
-                            padding-top: 0 !important;
-                            height: 100vh !important;
-                        }
-                        body {
-                            padding-top: 0 !important;
-                        }
-                    `;
-                    (doc.head || doc.body).appendChild(style);
-                }
-            } catch (e) {
-                console.debug('Could not style iframe content:', e);
-            }
-        });
+        const viewEl = document.getElementById('nc-contact-view');
+        const editEl = document.getElementById('nc-contact-edit');
+        if (viewEl) viewEl.style.display = 'none';
+        if (editEl) editEl.style.display = 'block';
+
+        const fullName = contactCard.full_name || client.full_name || '';
+        const initials = getInitials(fullName);
+        const email = contactCard.email || client.email || '';
+        const phone = contactCard.phone || client.phone || client.phone_raw || '';
+        const website = contactCard.website || '';
+        const notes = contactCard.notes || client.notes || '';
+        const title = contactCard.title || '';
+        const company = contactCard.company || '';
+        const emailType = (contactCard.email_type || 'OTHER').toUpperCase();
+
+        const editAvatar = document.getElementById('nc-edit-avatar-text');
+        if (editAvatar) editAvatar.textContent = initials;
+
+        const fnInput = document.getElementById('nc-input-fullname');
+        if (fnInput) fnInput.value = fullName;
+
+        const titleInput = document.getElementById('nc-input-title');
+        if (titleInput) titleInput.value = title;
+
+        const compInput = document.getElementById('nc-input-company');
+        if (compInput) compInput.value = company;
+
+        const emailInput = document.getElementById('nc-input-email');
+        if (emailInput) emailInput.value = email;
+
+        const emailSelect = document.getElementById('nc-select-email-type');
+        if (emailSelect) {
+            emailSelect.value = ['OTHER', 'WORK', 'HOME'].includes(emailType) ? emailType : 'OTHER';
+        }
+
+        const phoneInput = document.getElementById('nc-input-phone');
+        if (phoneInput) phoneInput.value = phone;
+
+        const webInput = document.getElementById('nc-input-website');
+        if (webInput) webInput.value = website;
+
+        const notesInput = document.getElementById('nc-input-notes');
+        if (notesInput) notesInput.value = notes;
+
+        const lastMod = contactCard.last_modified ? formatTimeAgo(contactCard.last_modified) : 'Last modified recently';
+        const editLastModEl = document.getElementById('nc-edit-lastmod');
+        if (editLastModEl) editLastModEl.textContent = lastMod;
     }
 
     function populateContactWidget() {
@@ -983,67 +1030,183 @@
         const client = currentClientData.client;
         const contactCard = currentClientData.contact_card || {};
 
-        const fnHeader = document.getElementById('contact-widget-fullname');
-        const syncBadge = document.getElementById('contact-sync-badge');
-        const iframe = document.getElementById('contact-app-iframe');
-        const placeholder = document.getElementById('contact-iframe-placeholder');
-        const extLink = document.getElementById('link-external-nc-contact');
+        // Always show view mode when populated/switched
+        showContactViewMode();
 
         const fullName = contactCard.full_name || client.full_name || 'Клиент';
-        if (fnHeader) fnHeader.textContent = fullName;
+        const initials = getInitials(fullName);
+        const email = contactCard.email || client.email || '';
+        const phone = contactCard.phone || client.phone || client.phone_raw || '';
+        const website = contactCard.website || (client.folder_path ? `${window.location.origin}/apps/files/?dir=${encodeURIComponent(client.folder_path)}` : '');
+        const address = contactCard.address || '';
+        const notes = contactCard.notes || client.notes || '';
+        const emailType = (contactCard.email_type || 'OTHER').toUpperCase();
+        const emailLabel = emailType === 'WORK' ? 'Work' : (emailType === 'HOME' ? 'Home' : 'Other');
+        const lastMod = contactCard.last_modified ? formatTimeAgo(contactCard.last_modified) : 'Last modified recently';
+        const addressbook = contactCard.addressbook_name || 'Contacts';
+        const groups = contactCard.groups || ['Clients'];
 
-        // Resolve Nextcloud Contacts URL
-        let appUrl = contactCard.app_url;
-        if (!appUrl && contactCard.uid) {
-            const ab = contactCard.addressbook || 'contacts';
-            appUrl = `/apps/contacts/All%20contacts/${btoa(contactCard.uid + '~' + ab)}`;
+        // View Mode Elements
+        const viewAvatar = document.getElementById('nc-view-avatar');
+        if (viewAvatar) viewAvatar.textContent = initials;
+
+        const viewFullName = document.getElementById('nc-view-fullname');
+        if (viewFullName) viewFullName.textContent = fullName;
+
+        const viewQuickMail = document.getElementById('nc-view-quick-mail');
+        if (viewQuickMail) {
+            viewQuickMail.href = email ? `mailto:${email}` : '#';
+            viewQuickMail.style.display = email ? 'inline-flex' : 'none';
         }
-        if (!appUrl && (fullName.includes('Petro') || fullName.includes('Sidorow'))) {
-            appUrl = '/apps/contacts/All%20contacts/MmQyMWRmYWItNzMwZC00YzQ5LWJhMTctMjcxYzhmOWUwNjEyfmNvbnRhY3Rz';
+
+        // Email
+        const emailLabelEl = document.getElementById('nc-view-email-label');
+        const emailValEl = document.getElementById('nc-view-email-val');
+        const openEmailLink = document.getElementById('nc-link-open-email');
+        if (emailLabelEl) emailLabelEl.textContent = emailLabel;
+        if (emailValEl) emailValEl.textContent = email || '—';
+        if (openEmailLink) {
+            openEmailLink.href = email ? `mailto:${email}` : '#';
+            openEmailLink.style.display = email ? 'inline-flex' : 'none';
         }
 
-        if (appUrl) {
-            const cleanUrl = appUrl.startsWith('/') ? appUrl : `/${appUrl}`;
-            const fullAppUrl = `${window.location.origin}${cleanUrl}`;
+        // Phone
+        const phoneValEl = document.getElementById('nc-view-phone-val');
+        const callPhoneLink = document.getElementById('nc-link-call-phone');
+        if (phoneValEl) phoneValEl.textContent = phone || '—';
+        if (callPhoneLink) {
+            callPhoneLink.href = phone ? `tel:${phone}` : '#';
+            callPhoneLink.style.display = phone ? 'inline-flex' : 'none';
+        }
 
-            if (extLink) {
-                extLink.href = fullAppUrl;
-                extLink.style.display = 'inline-flex';
+        // Website
+        const websiteValEl = document.getElementById('nc-view-website-val');
+        if (websiteValEl) {
+            if (website) {
+                websiteValEl.href = website;
+                websiteValEl.textContent = website;
+                websiteValEl.style.display = 'inline';
+            } else {
+                websiteValEl.textContent = '—';
+                websiteValEl.removeAttribute('href');
+            }
+        }
+
+        // Address
+        const addressValEl = document.getElementById('nc-view-address-val');
+        if (addressValEl) addressValEl.textContent = address || '—';
+
+        // Notes
+        const notesValEl = document.getElementById('nc-view-notes-val');
+        if (notesValEl) notesValEl.textContent = notes || '—';
+
+        // Addressbook & Groups
+        const abValEl = document.getElementById('nc-view-addressbook-val');
+        if (abValEl) abValEl.textContent = addressbook;
+
+        const groupsList = document.getElementById('nc-view-groups-list');
+        if (groupsList) {
+            groupsList.innerHTML = '';
+            (Array.isArray(groups) ? groups : [groups]).forEach(g => {
+                const badge = document.createElement('span');
+                badge.className = 'nc-tag-badge';
+                badge.textContent = g;
+                groupsList.appendChild(badge);
+            });
+        }
+
+        const lastModEl = document.getElementById('nc-view-lastmod');
+        if (lastModEl) lastModEl.textContent = lastMod;
+    }
+
+    async function handleSaveContact() {
+        if (!currentClientId) return;
+
+        const saveBtn = document.getElementById('nc-btn-save-contact');
+        const origText = saveBtn ? saveBtn.textContent : '✓ Save';
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = '⏳ Saving...';
+        }
+
+        const fullName = document.getElementById('nc-input-fullname')?.value.trim();
+        const title = document.getElementById('nc-input-title')?.value.trim();
+        const company = document.getElementById('nc-input-company')?.value.trim();
+        const email = document.getElementById('nc-input-email')?.value.trim();
+        const emailType = document.getElementById('nc-select-email-type')?.value || 'OTHER';
+        const phone = document.getElementById('nc-input-phone')?.value.trim();
+        const website = document.getElementById('nc-input-website')?.value.trim();
+        const notes = document.getElementById('nc-input-notes')?.value;
+
+        try {
+            const res = await fetch(`${apiBase}/clients/${currentClientId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'requesttoken': OC.requestToken
+                },
+                body: JSON.stringify({
+                    full_name: fullName,
+                    title: title,
+                    company: company,
+                    email: email,
+                    email_type: emailType,
+                    phone: phone,
+                    website: website,
+                    notes: notes
+                })
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                alert('Ошибка при сохранении контакта: ' + (err.error || 'Неизвестная ошибка'));
+                return;
             }
 
-            if (syncBadge) {
-                syncBadge.className = 'sync-badge-ok';
-                syncBadge.textContent = '🟢 CardDAV Синхронизировано';
+            const data = await res.json();
+            if (data.client) {
+                currentClientData.client = data.client;
+            }
+            if (data.contact_card) {
+                currentClientData.contact_card = data.contact_card;
+            } else if (currentClientData.contact_card) {
+                currentClientData.contact_card.full_name = fullName;
+                currentClientData.contact_card.title = title;
+                currentClientData.contact_card.company = company;
+                currentClientData.contact_card.email = email;
+                currentClientData.contact_card.email_type = emailType;
+                currentClientData.contact_card.phone = phone;
+                currentClientData.contact_card.website = website;
+                currentClientData.contact_card.notes = notes;
+                currentClientData.contact_card.last_modified = Math.floor(Date.now() / 1000);
             }
 
-            if (iframe) {
-                iframe.style.display = 'block';
-                if (iframe.dataset.currentSrc !== fullAppUrl) {
-                    iframe.dataset.currentSrc = fullAppUrl;
-                    iframe.src = fullAppUrl;
-                }
-            }
-            if (placeholder) {
-                placeholder.style.display = 'none';
-            }
-        } else {
-            if (extLink) {
-                extLink.href = '#';
-                extLink.style.display = 'none';
+            // Update client in clientsCache so sidebar item updates
+            const cachedIndex = clientsCache.findIndex(c => c.id === currentClientId);
+            if (cachedIndex !== -1 && currentClientData.client) {
+                clientsCache[cachedIndex] = { ...clientsCache[cachedIndex], ...currentClientData.client };
+                renderClientList(clientsCache);
             }
 
-            if (syncBadge) {
-                syncBadge.className = 'sync-badge-warn';
-                syncBadge.textContent = '🟡 Требуется синхронизация';
+            // Update main header full name and avatar
+            const headerNameEl = document.getElementById('detail-client-name');
+            if (headerNameEl && fullName) {
+                headerNameEl.textContent = fullName;
+            }
+            const headerAvatarEl = document.getElementById('detail-client-avatar');
+            if (headerAvatarEl && fullName) {
+                headerAvatarEl.textContent = getInitials(fullName);
             }
 
-            if (iframe) {
-                iframe.style.display = 'none';
-                iframe.dataset.currentSrc = '';
-                iframe.src = 'about:blank';
-            }
-            if (placeholder) {
-                placeholder.style.display = 'flex';
+            populateContactWidget();
+            showContactViewMode();
+        } catch (err) {
+            console.error('Error saving contact:', err);
+            alert('Сетевая ошибка при сохранении контакта');
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = origText;
             }
         }
     }
@@ -1486,4 +1649,7 @@
     window.openClientNameEditor = openClientNameEditor;
     window.closeClientNameEditor = closeClientNameEditor;
     window.saveClientName = handleSaveClientName;
+    window.showContactViewMode = showContactViewMode;
+    window.showContactEditMode = showContactEditMode;
+    window.handleSaveContact = handleSaveContact;
 })();

@@ -74,152 +74,8 @@ declare(strict_types=1);
                 </div>
             </div>
 
-            <!-- Canadian CRA Tax Lifecycle Stepper -->
-            <div class="cra-tax-stepper-bar" id="cra-stepper-bar">
-                <div class="stepper-step completed" data-step="1" title="Шаг 1: Intake (Запись) — Завершена">
-                    <div class="step-indicator">✓</div>
-                    <div class="step-label">1. Intake (Запись)</div>
-                </div>
-                <div class="stepper-divider completed" data-step-divider="1"></div>
-                <div class="stepper-step active" data-step="2" title="Шаг 2: Сбор документов (В процессе)">
-                    <div class="step-indicator">2</div>
-                    <div class="step-label">2. Сбор документов</div>
-                </div>
-                <div class="stepper-divider" data-step-divider="2"></div>
-                <div class="stepper-step" data-step="3" title="Шаг 3: Расчёт декларации (Tax Prep)">
-                    <div class="step-indicator">3</div>
-                    <div class="step-label">3. Расчёт (Tax Prep)</div>
-                </div>
-                <div class="stepper-divider" data-step-divider="3"></div>
-                <div class="stepper-step" data-step="4" title="Шаг 4: Электронная подпись T183">
-                    <div class="step-indicator">4</div>
-                    <div class="step-label">4. T183 e-Sign</div>
-                </div>
-                <div class="stepper-divider" data-step-divider="4"></div>
-                <div class="stepper-step" data-step="5" title="Шаг 5: Подача в CRA (EFILE)">
-                    <div class="step-indicator">5</div>
-                    <div class="step-label">5. CRA EFILE</div>
-                </div>
-            </div>
-
-            <!-- 2-Column Workspace: Left Toolkit (CRA & PIPEDA) / Right (Timeline & Messaging) -->
-            <div class="minicrm-workspace-grid">
-                <!-- Left Column: Canadian Tax Clinic Toolkit -->
-                <div class="minicrm-toolkit-panel">
-                    <!-- CRA Tax Slips Checklist Card -->
-                    <div class="toolkit-card tax-checklist-card">
-                        <div class="card-header">
-                            <div class="card-title">
-                                <span class="card-icon">📑</span>
-                                <h4>Чек-лист CRA для T1</h4>
-                            </div>
-                            <span class="card-counter" id="docs-count">0/5 готово</span>
-                        </div>
-                        <div class="checklist-progress-track">
-                            <div class="checklist-progress-bar" id="checklist-progress-bar" style="width: 0%;"></div>
-                        </div>
-                        <ul class="tax-checklist-items" id="tax-checklist-items">
-                            <li>
-                                <label class="checklist-item-label">
-                                    <input type="checkbox" data-doc="t4" class="checklist-checkbox" />
-                                    <span class="item-text">T4 (Employment Income)</span>
-                                </label>
-                            </li>
-                            <li>
-                                <label class="checklist-item-label">
-                                    <input type="checkbox" data-doc="id" class="checklist-checkbox" />
-                                    <span class="item-text">ID / PR Card / Work Permit</span>
-                                </label>
-                            </li>
-                            <li>
-                                <label class="checklist-item-label">
-                                    <input type="checkbox" data-doc="t5" class="checklist-checkbox" />
-                                    <span class="item-text">T5 / Инвестиции (Interest)</span>
-                                </label>
-                            </li>
-                            <li>
-                                <label class="checklist-item-label">
-                                    <input type="checkbox" data-doc="med" class="checklist-checkbox" />
-                                    <span class="item-text">Medical Receipts (Медицина)</span>
-                                </label>
-                            </li>
-                            <li>
-                                <label class="checklist-item-label">
-                                    <input type="checkbox" data-doc="noa" class="checklist-checkbox" />
-                                    <span class="item-text">Notice of Assessment (NOA 2023)</span>
-                                </label>
-                            </li>
-                        </ul>
-
-                        <!-- FileDrop Quick-Share Link -->
-                        <div class="filedrop-quick-box">
-                            <div class="filedrop-label">Безопасная ссылка для досылки (FileDrop):</div>
-                            <div class="filedrop-input-row">
-                                <input type="text" readonly id="toolkit-filedrop-input" value="—" placeholder="Ссылка не сформирована" />
-                                <button type="button" id="btn-copy-toolkit-filedrop" class="btn-copy-mini" title="Скопировать ссылку для клиента">📋</button>
-                                <a id="link-open-toolkit-filedrop" href="#" target="_blank" class="btn-copy-mini" title="Открыть папку загрузки" style="display: none;">↗️</a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Security & PIPEDA Compliance Card -->
-                    <div class="toolkit-card pipeda-card">
-                        <div class="card-header">
-                            <div class="card-title">
-                                <span class="card-icon">🔒</span>
-                                <h4>Безопасность и PIPEDA</h4>
-                            </div>
-                            <span class="pipeda-badge">Compliant</span>
-                        </div>
-                        <div class="pipeda-details">
-                            <div class="pipeda-row">
-                                <span class="pipeda-label">SIN (Tax ID):</span>
-                                <div class="pipeda-value-wrap">
-                                    <span id="pipeda-sin-value" class="sin-masked">***-***-841</span>
-                                    <button type="button" id="btn-toggle-sin" class="btn-toggle-sin" title="Показать/скрыть SIN">👁️</button>
-                                </div>
-                            </div>
-                            <div class="pipeda-row">
-                                <span class="pipeda-label">Провинция:</span>
-                                <span id="pipeda-province-value" class="pipeda-val-strong">Alberta (AB)</span>
-                            </div>
-                            <div class="pipeda-row">
-                                <span class="pipeda-label">CRA Status:</span>
-                                <span id="pipeda-cra-status" class="pipeda-status-val">Awaiting T183 Sign</span>
-                            </div>
-                            <div class="pipeda-row">
-                                <span class="pipeda-label">Приём / Клиника:</span>
-                                <span id="pipeda-clinic-value" class="pipeda-val-strong">ViolaTax Lethbridge</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Appointment Details Card -->
-                    <div class="toolkit-card appointment-card">
-                        <div class="card-header">
-                            <div class="card-title">
-                                <span class="card-icon">🗓️</span>
-                                <h4>Запись EasyAppointments</h4>
-                            </div>
-                        </div>
-                        <div class="pipeda-details">
-                            <div class="pipeda-row">
-                                <span class="pipeda-label">Услуга:</span>
-                                <span id="ea-service-name" class="pipeda-val-strong">—</span>
-                            </div>
-                            <div class="pipeda-row">
-                                <span class="pipeda-label">Время приёма:</span>
-                                <span id="ea-appointment-time" class="pipeda-val-strong">—</span>
-                            </div>
-                            <div class="pipeda-row">
-                                <span class="pipeda-label">Специалист:</span>
-                                <span id="ea-provider-name" class="pipeda-val-strong">contact violatax.ca</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right Column: Interactive Widgets Panel (Contact, Files, Deck & Actions) -->
+            <!-- Main Full-Width Workspace: Interactive Widgets Panel (Contact, Files, Deck & Actions) -->
+            <div class="minicrm-workspace-single">
                 <div class="minicrm-main-panel">
 
                     <!-- WIDGET 2: In-App Files & Documents Explorer -->
@@ -298,40 +154,305 @@ declare(strict_types=1);
                         </div>
                     </div>
 
-                    <!-- WIDGET: Nextcloud Contacts Native Embedded App -->
+                    <!-- WIDGET 1: Nextcloud Contacts Native Card Widget (View & Edit Modes) -->
                     <div id="widget-panel-contact" class="minicrm-widget-view active">
-                        <div class="widget-contact-container">
-                            <!-- Contact Widget Header / Toolbar -->
-                            <div class="contact-widget-topbar">
-                                <div class="contact-topbar-left">
-                                    <span class="contact-topbar-icon">📇</span>
-                                    <div class="contact-topbar-titles">
-                                        <h3 id="contact-topbar-title">Nextcloud Contacts: <span id="contact-widget-fullname">—</span></h3>
-                                        <span id="contact-sync-badge" class="sync-badge-ok">🟢 CardDAV</span>
+                        <div class="nc-contact-wrapper">
+
+                            <!-- 1. VIEW MODE (Matches Screenshot 2) -->
+                            <div id="nc-contact-view" class="nc-contact-view-container">
+                                <div class="nc-contact-header-layout">
+                                    <div class="nc-contact-avatar-badge" id="nc-view-avatar">PS</div>
+                                    <div class="nc-contact-title-group">
+                                        <div class="nc-contact-name-row">
+                                            <h2 class="nc-contact-fullname" id="nc-view-fullname">Petro Sidorow</h2>
+                                            <div class="nc-contact-header-actions">
+                                                <button type="button" id="nc-btn-trigger-edit" class="nc-btn-action" title="Редактировать контакт">
+                                                    <span class="nc-action-icon">✏️</span> Edit
+                                                </button>
+                                                <button type="button" id="nc-btn-view-menu" class="nc-btn-action nc-btn-icon-only" title="Дополнительные действия">
+                                                    •••
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="nc-contact-quick-row">
+                                            <a id="nc-view-quick-mail" href="#" class="nc-quick-btn-mail" title="Написать письмо">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                                    <polyline points="22,6 12,13 2,6"></polyline>
+                                                </svg>
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="contact-topbar-actions">
-                                    <button type="button" id="btn-refresh-contact-iframe" class="button button-small" title="Перезагрузить карточку в Contacts">
-                                        🔄 Обновить
-                                    </button>
-                                    <a id="link-external-nc-contact" href="#" target="_blank" class="button button-small" title="Открыть в новой вкладке Nextcloud Contacts">
-                                        ↗️ В новой вкладке
-                                    </a>
+
+                                <div class="nc-contact-body-grid">
+                                    <!-- Left Column: Contact Fields -->
+                                    <div class="nc-contact-props-col">
+                                        <!-- Email Group -->
+                                        <div class="nc-field-group" id="nc-view-group-email">
+                                            <div class="nc-field-heading">
+                                                <span class="nc-field-icon">✉️</span> Email
+                                            </div>
+                                            <div class="nc-field-row">
+                                                <span class="nc-field-label" id="nc-view-email-label">Other</span>
+                                                <span id="nc-view-email-val" class="nc-field-text">—</span>
+                                                <div class="nc-field-actions">
+                                                    <button type="button" id="nc-btn-copy-email" class="nc-btn-field-mini" title="Скопировать email">📋</button>
+                                                    <a id="nc-link-open-email" href="#" class="nc-btn-field-mini" title="Написать письмо">↗️</a>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Phone Group -->
+                                        <div class="nc-field-group" id="nc-view-group-phone">
+                                            <div class="nc-field-heading">
+                                                <span class="nc-field-icon">📞</span> Phone
+                                            </div>
+                                            <div class="nc-field-row">
+                                                <span class="nc-field-label" id="nc-view-phone-label">Cell</span>
+                                                <span id="nc-view-phone-val" class="nc-field-text">—</span>
+                                                <div class="nc-field-actions">
+                                                    <button type="button" id="nc-btn-copy-phone" class="nc-btn-field-mini" title="Скопировать телефон">📋</button>
+                                                    <a id="nc-link-call-phone" href="#" class="nc-btn-field-mini" title="Позвонить">📞</a>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Website Group -->
+                                        <div class="nc-field-group" id="nc-view-group-website">
+                                            <div class="nc-field-heading">
+                                                <span class="nc-field-icon">🌐</span> Website
+                                            </div>
+                                            <div class="nc-field-row">
+                                                <span class="nc-field-label">Website</span>
+                                                <a id="nc-view-website-val" class="nc-field-link" href="#" target="_blank">—</a>
+                                            </div>
+                                        </div>
+
+                                        <!-- Address Group -->
+                                        <div class="nc-field-group" id="nc-view-group-address">
+                                            <div class="nc-field-heading">
+                                                <span class="nc-field-icon">🏠</span> Address
+                                            </div>
+                                            <div class="nc-field-row">
+                                                <span class="nc-field-label">Home</span>
+                                                <span id="nc-view-address-val" class="nc-field-text">—</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Notes Group -->
+                                        <div class="nc-field-group" id="nc-view-group-notes">
+                                            <div class="nc-field-heading">
+                                                <span class="nc-field-icon">📝</span> Notes
+                                            </div>
+                                            <div class="nc-field-row">
+                                                <span class="nc-field-label">Notes</span>
+                                                <span id="nc-view-notes-val" class="nc-field-text nc-field-notes-text">—</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Address Book Group -->
+                                        <div class="nc-field-group" id="nc-view-group-addressbook">
+                                            <div class="nc-field-heading">
+                                                <span class="nc-field-icon">📖</span> Address book
+                                            </div>
+                                            <div class="nc-field-row">
+                                                <span class="nc-field-label">Address book</span>
+                                                <span class="nc-field-text" id="nc-view-addressbook-val">Contacts</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Contact Groups -->
+                                        <div class="nc-field-group" id="nc-view-group-groups">
+                                            <div class="nc-field-heading">
+                                                <span class="nc-field-icon">👥</span> Contact groups
+                                            </div>
+                                            <div class="nc-field-row">
+                                                <span class="nc-field-label">Contact groups</span>
+                                                <div class="nc-tags-list" id="nc-view-groups-list">
+                                                    <span class="nc-tag-badge">Clients</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="nc-contact-lastmod" id="nc-view-lastmod">Last modified recently</div>
+                                    </div>
+
+                                    <!-- Right Column: Shared Items Placeholder (Matches Screenshot 2) -->
+                                    <div class="nc-contact-shared-col">
+                                        <div class="nc-shared-box">
+                                            <div class="nc-shared-art">
+                                                <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                                </svg>
+                                            </div>
+                                            <span class="nc-shared-label">No shared items with this contact</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Embedded Native Nextcloud Contacts App Iframe -->
-                            <div class="contact-iframe-wrapper">
-                                <iframe id="contact-app-iframe" class="contact-embedded-frame" src="about:blank" frameborder="0"></iframe>
-                                <div id="contact-iframe-placeholder" class="contact-iframe-placeholder" style="display: none;">
-                                    <div class="empty-icon">👤</div>
-                                    <h3>Контакт в Nextcloud Contacts ещё не создан</h3>
-                                    <p>Нажмите кнопку ниже для автоматического создания и открытия карточки контакта в Nextcloud Contacts.</p>
-                                    <button type="button" id="btn-widget-sync-contact" class="button primary">
-                                        🔄 Создать контакт в Nextcloud Contacts
-                                    </button>
+                            <!-- 2. EDIT MODE (Matches Screenshot 3) -->
+                            <div id="nc-contact-edit" class="nc-contact-edit-container" style="display: none;">
+                                <div class="nc-contact-header-layout">
+                                    <div class="nc-contact-avatar-badge nc-avatar-editable" id="nc-edit-avatar">
+                                        <span id="nc-edit-avatar-text">PS</span>
+                                        <span class="nc-avatar-upload-icon">📷</span>
+                                    </div>
+                                    <div class="nc-contact-title-group">
+                                        <div class="nc-edit-name-group">
+                                            <div class="nc-edit-input-wrapper">
+                                                <label class="nc-floating-label">Name</label>
+                                                <input type="text" id="nc-input-fullname" class="nc-styled-input nc-input-name" placeholder="Full name" />
+                                            </div>
+                                            <div class="nc-edit-sub-row">
+                                                <div class="nc-edit-input-wrapper">
+                                                    <label class="nc-floating-label">Title</label>
+                                                    <input type="text" id="nc-input-title" class="nc-styled-input" placeholder="Title" />
+                                                </div>
+                                                <div class="nc-edit-input-wrapper">
+                                                    <label class="nc-floating-label">Company</label>
+                                                    <input type="text" id="nc-input-company" class="nc-styled-input" placeholder="Company" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="nc-contact-header-actions">
+                                            <button type="button" id="nc-btn-save-contact" class="button primary nc-btn-save">
+                                                ✓ Save
+                                            </button>
+                                            <button type="button" id="nc-btn-cancel-contact" class="button nc-btn-cancel">
+                                                Cancel
+                                            </button>
+                                            <button type="button" class="nc-btn-action nc-btn-icon-only">•••</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="nc-edit-form-body">
+                                    <!-- Email Edit Group -->
+                                    <div class="nc-edit-group">
+                                        <div class="nc-edit-group-header">
+                                            <div class="nc-edit-group-title">
+                                                <span class="nc-field-icon">✉️</span>
+                                                <strong>Email</strong>
+                                            </div>
+                                            <button type="button" id="nc-btn-add-email" class="nc-btn-row-add" title="Добавить email">+</button>
+                                        </div>
+                                        <div class="nc-edit-row">
+                                            <select id="nc-select-email-type" class="nc-styled-select">
+                                                <option value="OTHER">Other</option>
+                                                <option value="WORK">Work</option>
+                                                <option value="HOME">Home</option>
+                                            </select>
+                                            <div class="nc-edit-input-wrapper nc-flex-1">
+                                                <label class="nc-floating-label">Email</label>
+                                                <input type="email" id="nc-input-email" class="nc-styled-input" placeholder="Email" />
+                                            </div>
+                                            <button type="button" id="nc-btn-clear-email" class="nc-btn-row-delete" title="Очистить">🗑️</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Phone Edit Group -->
+                                    <div class="nc-edit-group">
+                                        <div class="nc-edit-group-header">
+                                            <div class="nc-edit-group-title">
+                                                <span class="nc-field-icon">📞</span>
+                                                <strong>Phone</strong>
+                                            </div>
+                                            <button type="button" id="nc-btn-add-phone" class="nc-btn-row-add" title="Добавить телефон">+</button>
+                                        </div>
+                                        <div class="nc-edit-row">
+                                            <select id="nc-select-phone-type" class="nc-styled-select">
+                                                <option value="CELL">Cell</option>
+                                                <option value="WORK">Work</option>
+                                                <option value="HOME">Home</option>
+                                            </select>
+                                            <div class="nc-edit-input-wrapper nc-flex-1">
+                                                <label class="nc-floating-label">Phone</label>
+                                                <input type="tel" id="nc-input-phone" class="nc-styled-input" placeholder="Phone" />
+                                            </div>
+                                            <button type="button" id="nc-btn-clear-phone" class="nc-btn-row-delete" title="Очистить">🗑️</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Website Edit Group -->
+                                    <div class="nc-edit-group">
+                                        <div class="nc-edit-group-header">
+                                            <div class="nc-edit-group-title">
+                                                <span class="nc-field-icon">🌐</span>
+                                                <strong>Website</strong>
+                                            </div>
+                                            <button type="button" id="nc-btn-add-website" class="nc-btn-row-add" title="Добавить сайт">+</button>
+                                        </div>
+                                        <div class="nc-edit-row">
+                                            <div class="nc-edit-input-wrapper nc-flex-1">
+                                                <label class="nc-floating-label">Website</label>
+                                                <input type="text" id="nc-input-website" class="nc-styled-input" placeholder="https://..." />
+                                            </div>
+                                            <button type="button" id="nc-btn-clear-website" class="nc-btn-row-delete" title="Очистить">🗑️</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Notes Edit Group -->
+                                    <div class="nc-edit-group">
+                                        <div class="nc-edit-group-header">
+                                            <div class="nc-edit-group-title">
+                                                <span class="nc-field-icon">📝</span>
+                                                <strong>Notes</strong>
+                                            </div>
+                                            <button type="button" id="nc-btn-clear-notes" class="nc-btn-row-delete" title="Очистить">🗑️</button>
+                                        </div>
+                                        <div class="nc-edit-row">
+                                            <div class="nc-edit-input-wrapper nc-flex-1">
+                                                <label class="nc-floating-label">Notes</label>
+                                                <textarea id="nc-input-notes" class="nc-styled-textarea" rows="3" placeholder="Notes"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Address Book Edit Group -->
+                                    <div class="nc-edit-group">
+                                        <div class="nc-edit-group-header">
+                                            <div class="nc-edit-group-title">
+                                                <span class="nc-field-icon">📖</span>
+                                                <strong>Address book</strong>
+                                            </div>
+                                        </div>
+                                        <div class="nc-edit-row">
+                                            <select id="nc-select-addressbook" class="nc-styled-select nc-w-full">
+                                                <option value="contacts">Contacts</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Contact Groups Edit -->
+                                    <div class="nc-edit-group">
+                                        <div class="nc-edit-group-header">
+                                            <div class="nc-edit-group-title">
+                                                <span class="nc-field-icon">👥</span>
+                                                <strong>Contact groups</strong>
+                                            </div>
+                                        </div>
+                                        <div class="nc-edit-row nc-groups-picker-row">
+                                            <div class="nc-tag-chip-editable">
+                                                Clients <button type="button" class="nc-chip-del">✕</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Add More Info Button -->
+                                    <div class="nc-add-more-wrap">
+                                        <button type="button" id="nc-btn-add-more-info" class="button button-small nc-btn-add-info">
+                                            + Add more info
+                                        </button>
+                                    </div>
+
+                                    <div class="nc-contact-lastmod" id="nc-edit-lastmod">Last modified recently</div>
                                 </div>
                             </div>
+
                         </div>
                     </div>
 

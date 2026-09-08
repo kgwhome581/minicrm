@@ -103,6 +103,17 @@ class ContactBridgeService {
                 }
             }
 
+            $title = trim((string)($extra['title'] ?? ''));
+            $company = trim((string)($extra['company'] ?? ''));
+            $customWebsite = trim((string)($extra['website'] ?? ''));
+            if (!empty($customWebsite)) {
+                $website = $customWebsite;
+            }
+            $emailType = strtoupper(trim((string)($extra['email_type'] ?? 'OTHER')));
+            if (!in_array($emailType, ['OTHER', 'WORK', 'HOME', 'CELL'])) {
+                $emailType = 'OTHER';
+            }
+
             $nowUtc = (new DateTime('now', new DateTimeZone('UTC')))->format('Ymd\THis\Z');
 
             // Build standard RFC 6350 vCard 3.0
@@ -112,6 +123,13 @@ class ContactBridgeService {
                 "UID:{$contactUid}\r\n" .
                 "FN:{$this->escapeVcardString($fullName)}\r\n" .
                 "N:{$this->escapeVcardString($lastName)};{$this->escapeVcardString($firstName)};;;\r\n";
+
+            if (!empty($title)) {
+                $vcard .= "TITLE:{$this->escapeVcardString($title)}\r\n";
+            }
+            if (!empty($company)) {
+                $vcard .= "ORG:{$this->escapeVcardString($company)}\r\n";
+            }
 
             if (!empty($customerId)) {
                 $vcard .= "X-EASYAPPOINTMENTS-ID:{$customerId}\r\n";
@@ -124,7 +142,7 @@ class ContactBridgeService {
                 $vcard .= "TEL;TYPE=CELL:{$this->escapeVcardString($phone)}\r\n";
             }
             if (!empty($email)) {
-                $vcard .= "EMAIL;TYPE=OTHER:{$this->escapeVcardString($email)}\r\n";
+                $vcard .= "EMAIL;TYPE={$emailType}:{$this->escapeVcardString($email)}\r\n";
             }
             if (!empty($street) || !empty($city) || !empty($postalCode)) {
                 $cCountry = !empty($country) ? $country : 'Canada';
@@ -330,10 +348,13 @@ class ContactBridgeService {
                     'app_url' => $appUrl,
                     'uid' => $contactUid,
                     'full_name' => $parsed['full_name'] ?: $fullName,
+                    'title' => $parsed['title'] ?? null,
+                    'company' => $parsed['company'] ?? null,
                     'addressbook' => $addressbookUri,
                     'addressbook_name' => $addressbookName,
                     'address' => $parsed['address'] ?: $fallbackAddress,
                     'email' => $parsed['email'] ?: $email,
+                    'email_type' => $parsed['email_type'] ?? 'OTHER',
                     'phone' => $parsed['phone'] ?: $phone,
                     'website' => $parsed['website'] ?: null,
                     'groups' => !empty($parsed['groups']) ? $parsed['groups'] : ['Clients'],
@@ -351,12 +372,15 @@ class ContactBridgeService {
                 'app_url' => '/apps/contacts/All%20contacts/MmQyMWRmYWItNzMwZC00YzQ5LWJhMTctMjcxYzhmOWUwNjEyfmNvbnRhY3Rz',
                 'uid' => '2d21dfab-730d-4c49-ba17-271c8f9e0612',
                 'full_name' => $fullName ?: 'Petro Sidorow',
+                'title' => null,
+                'company' => null,
                 'addressbook' => 'contacts',
                 'addressbook_name' => 'Contacts',
                 'address' => $fallbackAddress,
                 'email' => $email ?: 'mischenkoff@gmail.com',
+                'email_type' => 'OTHER',
                 'phone' => $phone,
-                'website' => null,
+                'website' => 'https://office.violatax.ca/apps/files/files/449?dir=/Users/Igor%20Mishchenko',
                 'groups' => ['Clients'],
                 'last_modified' => time(),
                 'notes' => $fallbackNotes,
@@ -478,9 +502,10 @@ class ContactBridgeService {
             }
         }
 
-        // 3. EMAIL field
-        if (preg_match('/^EMAIL[^:]*:(.*)$/mi', (string)$unfolded, $emailMatch)) {
-            $cleanEmail = trim(str_replace(['\;', '\,'], [';', ','], $emailMatch[1]));
+        // 3. EMAIL field with TYPE
+        if (preg_match('/^EMAIL(?:;[^:]*TYPE=([^:;]+))?[^:]*:(.*)$/mi', (string)$unfolded, $emailMatch)) {
+            $result['email_type'] = !empty($emailMatch[1]) ? strtoupper(trim($emailMatch[1])) : 'OTHER';
+            $cleanEmail = trim(str_replace(['\;', '\,'], [';', ','], $emailMatch[2]));
             if (!empty($cleanEmail)) {
                 $result['email'] = $cleanEmail;
             }
@@ -507,6 +532,22 @@ class ContactBridgeService {
             $rawCats = trim(str_replace(['\;'], [';'], $catMatch[1]));
             if (!empty($rawCats)) {
                 $result['groups'] = array_values(array_filter(array_map('trim', explode(',', $rawCats))));
+            }
+        }
+
+        // 7. TITLE field
+        if (preg_match('/^TITLE[^:]*:(.*)$/mi', (string)$unfolded, $titleMatch)) {
+            $cleanTitle = trim(str_replace(['\;', '\,'], [';', ','], $titleMatch[1]));
+            if (!empty($cleanTitle)) {
+                $result['title'] = $cleanTitle;
+            }
+        }
+
+        // 8. ORG field (Company)
+        if (preg_match('/^ORG[^:]*:(.*)$/mi', (string)$unfolded, $orgMatch)) {
+            $cleanCompany = trim(str_replace(['\;', '\,'], [';', ','], $orgMatch[1]));
+            if (!empty($cleanCompany)) {
+                $result['company'] = $cleanCompany;
             }
         }
 

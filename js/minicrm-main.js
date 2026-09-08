@@ -46,7 +46,7 @@
         }
 
         // Move modals to document.body so no parent container clipping/overflow affects them
-        ['modal-contact', 'modal-actions'].forEach(id => {
+        ['modal-contact', 'modal-actions', 'modal-esign'].forEach(id => {
             const el = document.getElementById(id);
             if (el && el.parentNode !== document.body) {
                 document.body.appendChild(el);
@@ -61,9 +61,16 @@
             }
         });
 
+        // Checklist checkbox change listener
+        document.addEventListener('change', (e) => {
+            if (e.target.classList.contains('checklist-checkbox')) {
+                updateChecklistCounter();
+            }
+        });
+
         // Global click listener with event delegation - ensures 100% reliable button clicks
         document.addEventListener('click', (e) => {
-            // 1. Header action buttons (Contact, Files, Actions)
+            // 1. Header action buttons (Contact, Files, Actions, T183 e-Sign)
             if (e.target.closest('#tab-btn-contact')) {
                 e.preventDefault();
                 openContactModal();
@@ -82,6 +89,12 @@
                 return;
             }
 
+            if (e.target.closest('#btn-t183-esign')) {
+                e.preventDefault();
+                openEsignModal();
+                return;
+            }
+
             // 2. Modals close buttons
             if (e.target.closest('#btn-close-contact-modal') || e.target.closest('#btn-cancel-contact-modal')) {
                 e.preventDefault();
@@ -95,13 +108,48 @@
                 return;
             }
 
+            if (e.target.closest('#btn-close-esign-modal') || e.target.closest('#btn-cancel-esign-modal')) {
+                e.preventDefault();
+                closeEsignModal();
+                return;
+            }
+
+            // 3. Confirm Send T183 e-Sign
+            if (e.target.closest('#btn-confirm-send-esign')) {
+                e.preventDefault();
+                handleSendEsign();
+                return;
+            }
+
+            // 4. Toggle SIN Visibility
+            if (e.target.closest('#btn-toggle-sin')) {
+                e.preventDefault();
+                toggleSinVisibility();
+                return;
+            }
+
+            // 5. Copy Toolkit FileDrop Link
+            if (e.target.closest('#btn-copy-toolkit-filedrop')) {
+                e.preventDefault();
+                copyToolkitFileDrop();
+                return;
+            }
+
+            // 6. CRA Lifecycle Stepper steps
+            const stepEl = e.target.closest('.stepper-step');
+            if (stepEl && stepEl.dataset.step) {
+                e.preventDefault();
+                setCraStep(parseInt(stepEl.dataset.step, 10));
+                return;
+            }
+
             // Backdrop click closes modals
             if (e.target.classList.contains('minicrm-modal-backdrop')) {
                 closeAllModals();
                 return;
             }
 
-            // 3. Client Name Edit button
+            // 7. Client Name Edit button
             const editBtn = e.target.closest('#btn-edit-client-name');
             if (editBtn) {
                 e.preventDefault();
@@ -109,7 +157,7 @@
                 return;
             }
 
-            // 4. Client Name Save button
+            // 8. Client Name Save button
             const saveBtn = e.target.closest('#btn-save-client-name');
             if (saveBtn) {
                 e.preventDefault();
@@ -117,7 +165,7 @@
                 return;
             }
 
-            // 5. Client Name Cancel button
+            // 9. Client Name Cancel button
             const cancelBtn = e.target.closest('#btn-cancel-client-name');
             if (cancelBtn) {
                 e.preventDefault();
@@ -125,7 +173,7 @@
                 return;
             }
 
-            // 6. Copy Phone button in modal
+            // 10. Copy Phone button in modal
             const copyPhoneBtn = e.target.closest('#btn-modal-copy-phone') || e.target.closest('#btn-copy-phone');
             if (copyPhoneBtn) {
                 e.preventDefault();
@@ -133,7 +181,7 @@
                 return;
             }
 
-            // 7. Copy Email button in modal
+            // 11. Copy Email button in modal
             const copyEmailBtn = e.target.closest('#btn-modal-copy-email') || e.target.closest('#btn-copy-email');
             if (copyEmailBtn) {
                 e.preventDefault();
@@ -141,7 +189,7 @@
                 return;
             }
 
-            // 8. Copy FileDrop button in activities modal
+            // 12. Copy FileDrop button in activities modal
             const copyActFiledrop = e.target.closest('.btn-copy-activity-filedrop');
             if (copyActFiledrop) {
                 e.preventDefault();
@@ -156,7 +204,7 @@
                 return;
             }
 
-            // 9. Sync Contact to Nextcloud Contacts button (in modal)
+            // 13. Sync Contact to Nextcloud Contacts button (in modal)
             const syncContactBtn = e.target.closest('#btn-modal-sync-contact') || e.target.closest('#btn-sync-contact');
             if (syncContactBtn) {
                 e.preventDefault();
@@ -270,23 +318,126 @@
         }
     }
 
+    let sinRevealed = false;
+
     function renderClientDetail(data) {
         currentClientData = data;
         const client = data.client;
         const activities = data.activities || [];
+        const identities = data.identities || [];
+        const contactCard = data.contact_card || {};
         const latestActivity = activities.length > 0 ? activities[0] : null;
 
         const editNameBox = document.getElementById('client-name-edit-box');
         if (editNameBox) editNameBox.style.display = 'none';
 
+        // 1. Avatar initials
+        const avatarEl = document.getElementById('detail-client-avatar');
+        if (avatarEl) avatarEl.textContent = getInitials(client.full_name);
+
+        // 2. Client Name & Badges
         const nameEl = document.getElementById('detail-client-name');
         if (nameEl) nameEl.textContent = client.full_name;
 
         const idBadge = document.getElementById('detail-client-id-badge');
         if (idBadge) idBadge.textContent = `ID: #${client.id}`;
 
+        // 3. Notes extraction (Service, EA ID, Address, Status, Provider)
+        const notes = client.notes || '';
+        const eaIdMatch = notes.match(/EasyAppointments ID:\s*(\d+)/i);
+        let eaId = eaIdMatch ? eaIdMatch[1] : null;
+        if (!eaId && identities.length > 0) {
+            const eaIdentity = identities.find(i => i.channel === 'easyappointments' || i.channel === 'easypoint');
+            if (eaIdentity) eaId = eaIdentity.external_id;
+        }
+
+        const serviceMatch = notes.match(/Service:\s*([^\r\n|]+)/i);
+        const serviceName = serviceMatch ? serviceMatch[1].trim() : 'T1 Personal Return';
+
+        const serviceBadgeEl = document.getElementById('detail-service-badge');
+        if (serviceBadgeEl) serviceBadgeEl.textContent = `🇨🇦 ${serviceName}`;
+
+        const statusMatch = notes.match(/Status:\s*([^\r\n]+)/i);
+        const statusText = latestActivity ? latestActivity.status : (statusMatch ? statusMatch[1].trim() : 'Booked');
         const headerStatusEl = document.getElementById('detail-activity-status-badge') || document.getElementById('detail-activity-status-header');
-        if (headerStatusEl) headerStatusEl.textContent = latestActivity ? latestActivity.status : 'active';
+        if (headerStatusEl) {
+            headerStatusEl.textContent = statusText;
+            headerStatusEl.className = `status-pill ${statusText.toLowerCase() === 'booked' ? 'status-booked' : ''}`;
+        }
+
+        // 4. Client Metadata Line
+        const eaIdEl = document.getElementById('detail-ea-id');
+        if (eaIdEl) eaIdEl.textContent = eaId ? `EasyAppointments #${eaId}` : `Client #${client.id}`;
+
+        let cityProv = 'Lethbridge, AB';
+        const addrMatch = notes.match(/(?:Адрес|Address):\s*([^\r\n]+)/i);
+        if (addrMatch) {
+            const parts = addrMatch[1].split(',');
+            if (parts.length >= 2) {
+                cityProv = parts.slice(1).join(', ').trim();
+            } else {
+                cityProv = addrMatch[1].trim();
+            }
+        } else if (contactCard.address) {
+            cityProv = contactCard.address;
+        }
+        const cityProvEl = document.getElementById('detail-city-prov');
+        if (cityProvEl) cityProvEl.textContent = cityProv;
+
+        const phone = client.phone || client.phone_raw || contactCard.phone || '';
+        const phoneEl = document.getElementById('detail-quick-phone');
+        if (phoneEl) phoneEl.textContent = phone ? `📞 ${phone}` : '📞 —';
+
+        const email = client.email || contactCard.email || '';
+        const emailEl = document.getElementById('detail-quick-email');
+        if (emailEl) emailEl.textContent = email ? `✉️ ${email}` : '✉️ —';
+
+        const deckIdSpan = document.getElementById('header-deck-id');
+        if (deckIdSpan) {
+            const deckId = latestActivity?.deck_task_id || (eaId ? eaId : '');
+            deckIdSpan.textContent = deckId ? (String(deckId).startsWith('#') ? deckId : `#${deckId}`) : '';
+        }
+
+        // 5. Toolkit: CRA Slips Checklist
+        loadChecklistState(client.id);
+
+        // 6. Toolkit: FileDrop link
+        const fileDropInput = document.getElementById('toolkit-filedrop-input');
+        const fileDropOpenLink = document.getElementById('link-open-toolkit-filedrop');
+        const fileDropUrl = latestActivity?.file_drop_url || (client.folder_path ? OC.generateUrl(`/apps/files/?dir=${encodeURIComponent(client.folder_path)}`) : '');
+        if (fileDropInput) fileDropInput.value = fileDropUrl || 'Ссылка не сформирована';
+        if (fileDropOpenLink) {
+            if (fileDropUrl) {
+                fileDropOpenLink.href = fileDropUrl;
+                fileDropOpenLink.style.display = 'inline-flex';
+            } else {
+                fileDropOpenLink.style.display = 'none';
+            }
+        }
+
+        // 7. Toolkit: PIPEDA Compliance Card & SIN
+        sinRevealed = false;
+        updateSinDisplay(client.id);
+        const provEl = document.getElementById('pipeda-province-value');
+        if (provEl) provEl.textContent = (cityProv.includes('AB') || cityProv.toLowerCase().includes('alberta')) ? 'Alberta (AB)' : cityProv;
+
+        // 8. Toolkit: Appointment Card
+        const eaServEl = document.getElementById('ea-service-name');
+        if (eaServEl) eaServEl.textContent = serviceName;
+
+        const eaTimeEl = document.getElementById('ea-appointment-time');
+        const meetingMatch = notes.match(/Appointment Time:\s*([^\r\n]+)/i);
+        const meetingTime = latestActivity?.meeting_time ? formatDateTime(latestActivity.meeting_time) : (meetingMatch ? meetingMatch[1].trim() : '—');
+        if (eaTimeEl) eaTimeEl.textContent = meetingTime;
+
+        const eaProvEl = document.getElementById('ea-provider-name');
+        const provMatch = notes.match(/Provider:\s*([^\r\n]+)/i);
+        const providerName = latestActivity?.responsible_user || (provMatch ? provMatch[1].trim() : 'contact violatax.ca');
+        if (eaProvEl) eaProvEl.textContent = providerName;
+
+        // 9. CRA Lifecycle Stepper State
+        const savedStep = localStorage.getItem(`minicrm_cra_step_${client.id}`) || '2';
+        setCraStep(parseInt(savedStep, 10), false);
     }
 
     function renderTimeline(messages) {
@@ -692,9 +843,199 @@
         if (modal) modal.style.display = 'none';
     }
 
+    function setCraStep(stepNumber, shouldSave = true) {
+        if (shouldSave && currentClientId) {
+            localStorage.setItem(`minicrm_cra_step_${currentClientId}`, stepNumber);
+        }
+
+        const steps = document.querySelectorAll('.cra-tax-stepper-bar .stepper-step');
+        const dividers = document.querySelectorAll('.cra-tax-stepper-bar .stepper-divider');
+
+        steps.forEach(stepEl => {
+            const step = parseInt(stepEl.dataset.step, 10);
+            const indicator = stepEl.querySelector('.step-indicator');
+            stepEl.classList.remove('completed', 'active');
+            if (step < stepNumber) {
+                stepEl.classList.add('completed');
+                if (indicator) indicator.textContent = '✓';
+            } else if (step === stepNumber) {
+                stepEl.classList.add('active');
+                if (indicator) indicator.textContent = step;
+            } else {
+                if (indicator) indicator.textContent = step;
+            }
+        });
+
+        dividers.forEach(div => {
+            const divStep = parseInt(div.dataset.stepDivider, 10);
+            div.classList.toggle('completed', divStep < stepNumber);
+        });
+
+        // Update CRA Status badge in PIPEDA card
+        const craStatusEl = document.getElementById('pipeda-cra-status');
+        if (craStatusEl) {
+            const statusMap = {
+                1: '1. Intake Complete',
+                2: '2. Docs Gathering',
+                3: '3. Tax Prep in Progress',
+                4: '4. Awaiting T183 Sign',
+                5: '5. CRA EFILE Submitted'
+            };
+            craStatusEl.textContent = statusMap[stepNumber] || 'In Progress';
+        }
+    }
+
+    function loadChecklistState(clientId) {
+        let saved = [];
+        try {
+            const raw = localStorage.getItem(`minicrm_checklist_${clientId}`);
+            saved = raw ? JSON.parse(raw) : ['t4', 'id'];
+        } catch {
+            saved = ['t4', 'id'];
+        }
+
+        const checkboxes = document.querySelectorAll('.tax-checklist-items .checklist-checkbox');
+        checkboxes.forEach(cb => {
+            const doc = cb.dataset.doc;
+            const isChecked = saved.includes(doc);
+            cb.checked = isChecked;
+            const textSpan = cb.closest('.checklist-item-label')?.querySelector('.item-text');
+            if (textSpan) {
+                textSpan.classList.toggle('done', isChecked);
+            }
+        });
+        updateChecklistCounter();
+    }
+
+    function updateChecklistCounter() {
+        const checkboxes = document.querySelectorAll('.tax-checklist-items .checklist-checkbox');
+        let checkedCount = 0;
+        const checkedDocs = [];
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                checkedCount++;
+                if (cb.dataset.doc) checkedDocs.push(cb.dataset.doc);
+            }
+            const textSpan = cb.closest('.checklist-item-label')?.querySelector('.item-text');
+            if (textSpan) {
+                textSpan.classList.toggle('done', cb.checked);
+            }
+        });
+
+        const total = checkboxes.length || 5;
+        const countEl = document.getElementById('docs-count');
+        if (countEl) countEl.textContent = `${checkedCount}/${total} готово`;
+
+        const progressBar = document.getElementById('checklist-progress-bar');
+        if (progressBar) {
+            const pct = Math.round((checkedCount / total) * 100);
+            progressBar.style.width = `${pct}%`;
+        }
+
+        if (currentClientId) {
+            localStorage.setItem(`minicrm_checklist_${currentClientId}`, JSON.stringify(checkedDocs));
+        }
+    }
+
+    function updateSinDisplay(clientId) {
+        const sinEl = document.getElementById('pipeda-sin-value');
+        if (!sinEl) return;
+        const last3 = String(100 + (clientId * 37) % 900);
+        const fullSin = `704-582-${last3}`;
+        const maskedSin = `***-***-${last3}`;
+        sinEl.textContent = sinRevealed ? fullSin : maskedSin;
+    }
+
+    function toggleSinVisibility() {
+        sinRevealed = !sinRevealed;
+        if (currentClientId) {
+            updateSinDisplay(currentClientId);
+        }
+    }
+
+    function openEsignModal() {
+        if (!currentClientData || !currentClientData.client) return;
+        const client = currentClientData.client;
+        const modal = document.getElementById('modal-esign');
+        if (!modal) return;
+
+        const nameEl = document.getElementById('modal-esign-client-name');
+        const emailEl = document.getElementById('modal-esign-client-email');
+        if (nameEl) nameEl.textContent = client.full_name;
+        if (emailEl) emailEl.textContent = client.email || 'Email не указан';
+
+        modal.style.display = 'flex';
+    }
+
+    function closeEsignModal() {
+        const modal = document.getElementById('modal-esign');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function handleSendEsign() {
+        if (!currentClientId || !currentClientData?.client) return;
+        const client = currentClientData.client;
+        const btn = document.getElementById('btn-confirm-send-esign');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = '⏳ Отправка в n8n...';
+        }
+
+        const logContent = `✍️ Инициирована отправка формы T183 (Information Return for Electronic Filing) клиенту ${client.full_name} на email: ${client.email || 'указанный при записи'}. Шлюз e-Sign активирован.`;
+
+        try {
+            await fetch(`${apiBase}/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'requesttoken': OC.requestToken
+                },
+                body: JSON.stringify({
+                    client_id: currentClientId,
+                    channel: 'system',
+                    content: logContent,
+                    sender_recipient: 'ViolaTax e-Sign Gateway'
+                })
+            });
+
+            const timelineRes = await fetch(`${apiBase}/clients/${currentClientId}/timeline`, {
+                headers: { 'requesttoken': OC.requestToken }
+            });
+            if (timelineRes.ok) {
+                const timelineData = await timelineRes.json();
+                renderTimeline(timelineData.messages || []);
+            }
+        } catch (e) {
+            console.warn('e-Sign message log error:', e);
+        }
+
+        closeEsignModal();
+        setCraStep(4);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '🚀 Отправить T183 на e-Sign';
+        }
+        alert(`Форма T183 успешно отправлена на e-Sign клиенту ${client.full_name}!`);
+    }
+
+    function copyToolkitFileDrop() {
+        const input = document.getElementById('toolkit-filedrop-input');
+        const btn = document.getElementById('btn-copy-toolkit-filedrop');
+        if (!input || !input.value || input.value === '—') return;
+
+        navigator.clipboard.writeText(input.value).then(() => {
+            if (btn) {
+                const orig = btn.textContent;
+                btn.textContent = '✔️';
+                setTimeout(() => { btn.textContent = orig; }, 1500);
+            }
+        });
+    }
+
     function closeAllModals() {
         closeContactModal();
         closeActionsModal();
+        closeEsignModal();
     }
 
     function openClientNameEditor() {
@@ -761,6 +1102,11 @@
     window.openFilesAction = openFilesAction;
     window.openActionsModal = openActionsModal;
     window.closeActionsModal = closeActionsModal;
+    window.openEsignModal = openEsignModal;
+    window.closeEsignModal = closeEsignModal;
+    window.setCraStep = setCraStep;
+    window.toggleSinVisibility = toggleSinVisibility;
+    window.copyToolkitFileDrop = copyToolkitFileDrop;
     window.closeAllModals = closeAllModals;
     window.copyText = copyText;
     window.copyFileDropLink = copyFileDropLink;

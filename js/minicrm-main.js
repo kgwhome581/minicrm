@@ -4,7 +4,7 @@
     let currentClientId = null;
     let currentClientData = null;
     let clientsCache = [];
-    let activeWidget = 'timeline';
+    let activeWidget = 'contact';
     let activeSubfolder = '';
     let filesCache = [];
     let widgetSinRevealed = false;
@@ -19,27 +19,12 @@
 
     function initApp() {
         const searchInput = document.getElementById('client-search-input');
-        const channelSelect = document.getElementById('reply-channel-select');
-        const subjectInput = document.getElementById('reply-subject-input');
-        const sendButton = document.getElementById('reply-send-button');
         const editNameInput = document.getElementById('input-edit-client-name');
 
         if (searchInput) {
             searchInput.addEventListener('input', debounce((e) => {
                 filterClients(e.target.value);
             }, 250));
-        }
-
-        if (channelSelect) {
-            channelSelect.addEventListener('change', (e) => {
-                if (subjectInput) {
-                    subjectInput.style.display = e.target.value === 'email' ? 'inline-block' : 'none';
-                }
-            });
-        }
-
-        if (sendButton) {
-            sendButton.addEventListener('click', handleSendMessage);
         }
 
         if (editNameInput) {
@@ -112,10 +97,10 @@
 
         // Global click listener with event delegation - ensures 100% reliable button clicks
         document.addEventListener('click', (e) => {
-            // 1. Header action buttons & In-App Widget Tabs
-            if (e.target.closest('#tab-btn-timeline')) {
+            // 1. Header action buttons (Contact, Files, Deck)
+            if (e.target.closest('#tab-btn-contact')) {
                 e.preventDefault();
-                switchWidget('timeline');
+                switchWidget('contact');
                 return;
             }
 
@@ -125,22 +110,9 @@
                 return;
             }
 
-            if (e.target.closest('#tab-btn-contact')) {
-                e.preventDefault();
-                switchWidget('contact');
-                return;
-            }
-
             if (e.target.closest('#tab-btn-actions')) {
                 e.preventDefault();
                 switchWidget('actions');
-                return;
-            }
-
-            const widgetTabBtn = e.target.closest('.widget-tab-btn');
-            if (widgetTabBtn && widgetTabBtn.dataset.widget) {
-                e.preventDefault();
-                switchWidget(widgetTabBtn.dataset.widget);
                 return;
             }
 
@@ -450,10 +422,9 @@
         }
 
         try {
-            const [clientRes, timelineRes] = await Promise.all([
-                fetch(`${apiBase}/clients/${clientId}`, { headers: { 'requesttoken': OC.requestToken } }),
-                fetch(`${apiBase}/clients/${clientId}/timeline`, { headers: { 'requesttoken': OC.requestToken } })
-            ]);
+            const clientRes = await fetch(`${apiBase}/clients/${clientId}`, {
+                headers: { 'requesttoken': OC.requestToken }
+            });
 
             if (clientRes.ok) {
                 const clientData = await clientRes.json();
@@ -463,11 +434,6 @@
                 }
             } else {
                 console.warn('API error fetching client details:', clientRes.status);
-            }
-
-            if (timelineRes.ok) {
-                const timelineData = await timelineRes.json();
-                renderTimeline(timelineData.messages || []);
             }
         } catch (err) {
             console.error('Error fetching client details:', err);
@@ -602,95 +568,6 @@
         switchWidget(activeWidget);
     }
 
-    function renderTimeline(messages) {
-        const stream = document.getElementById('detail-timeline-stream');
-        if (!stream) return;
-
-        if (messages.length === 0) {
-            stream.innerHTML = '<div class="timeline-empty">Сообщений пока нет</div>';
-            return;
-        }
-
-        stream.innerHTML = '';
-        messages.forEach(msg => {
-            const bubble = document.createElement('div');
-            const direction = msg.direction || 'inbound';
-            const channel = msg.channel || 'email';
-
-            bubble.className = `timeline-bubble ${direction} ${channel === 'system' ? 'system' : ''}`;
-
-            const channelIcons = {
-                telegram: '✈️ Telegram',
-                whatsapp: '💬 WhatsApp',
-                email: '✉️ Email',
-                facebook: '📘 Facebook',
-                system: '⚙️ Система'
-            };
-
-            const icon = channelIcons[channel] || channel;
-            const time = msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-
-            bubble.innerHTML = `
-                <div class="bubble-header">
-                    <span>${icon} • ${escapeHtml(msg.sender_recipient || '')}</span>
-                    <span>${time}</span>
-                </div>
-                ${msg.subject ? `<div class="bubble-subject"><strong>${escapeHtml(msg.subject)}</strong></div>` : ''}
-                <div class="bubble-content">${escapeHtml(msg.content || '')}</div>
-                ${msg.attachments && msg.attachments.length > 0 ? `
-                    <div class="bubble-attachments">
-                        📎 Вложения: ${msg.attachments.map(a => `<a href="${OC.generateUrl('/apps/files/?dir=' + encodeURIComponent(a))}" target="_blank">${escapeHtml(a.split('/').pop())}</a>`).join(', ')}
-                    </div>
-                ` : ''}
-            `;
-            stream.appendChild(bubble);
-        });
-
-        stream.scrollTop = stream.scrollHeight;
-    }
-
-    async function handleSendMessage() {
-        if (!currentClientId) return;
-
-        const channel = document.getElementById('reply-channel-select').value;
-        const subjectInput = document.getElementById('reply-subject-input');
-        const textInput = document.getElementById('reply-message-text');
-        const content = textInput.value.trim();
-
-        if (!content) return;
-
-        const currentClient = clientsCache.find(c => c.id === currentClientId);
-        const recipient = channel === 'email' ? currentClient?.email : currentClient?.phone;
-
-        try {
-            const res = await fetch(`${apiBase}/messages/send`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'requesttoken': OC.requestToken
-                },
-                body: JSON.stringify({
-                    client_id: currentClientId,
-                    channel: channel,
-                    recipient: recipient,
-                    subject: subjectInput ? subjectInput.value : '',
-                    content: content
-                })
-            });
-
-            if (res.ok) {
-                textInput.value = '';
-                // Refresh timeline
-                const timelineRes = await fetch(`${apiBase}/clients/${currentClientId}/timeline`, {
-                    headers: { 'requesttoken': OC.requestToken }
-                });
-                const timelineData = await timelineRes.json();
-                renderTimeline(timelineData.messages || []);
-            }
-        } catch (err) {
-            console.error('Failed to send message:', err);
-        }
-    }
 
     async function handleSaveClientName() {
         if (!currentClientId) return;
@@ -809,22 +686,19 @@
     }
 
     function switchWidget(widgetName) {
+        if (!['contact', 'files', 'actions'].includes(widgetName)) {
+            widgetName = 'contact';
+        }
         activeWidget = widgetName;
 
-        // 1. Update tab buttons in main panel
-        document.querySelectorAll('.widget-tab-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.widget === widgetName);
-        });
-
-        // 2. Update header tab buttons
+        // 1. Update header action buttons
         const headerMap = {
-            timeline: 'tab-btn-timeline',
-            files: 'tab-btn-files',
             contact: 'tab-btn-contact',
+            files: 'tab-btn-files',
             actions: 'tab-btn-actions'
         };
 
-        ['tab-btn-timeline', 'tab-btn-files', 'tab-btn-contact', 'tab-btn-actions'].forEach(id => {
+        ['tab-btn-contact', 'tab-btn-files', 'tab-btn-actions'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.remove('active');
         });
@@ -832,11 +706,10 @@
         const activeHeaderBtn = document.getElementById(headerMap[widgetName]);
         if (activeHeaderBtn) activeHeaderBtn.classList.add('active');
 
-        // 3. Toggle panel visibility
+        // 2. Toggle widget panels visibility
         const panels = {
-            timeline: document.getElementById('widget-panel-timeline'),
-            files: document.getElementById('widget-panel-files'),
             contact: document.getElementById('widget-panel-contact'),
+            files: document.getElementById('widget-panel-files'),
             actions: document.getElementById('widget-panel-actions')
         };
 
@@ -846,16 +719,13 @@
             }
         });
 
-        // 4. Trigger widget specific population/fetching
+        // 3. Trigger widget specific population/fetching
         if (widgetName === 'files' && currentClientId) {
             loadClientFiles(currentClientId, activeSubfolder);
         } else if (widgetName === 'contact') {
             populateContactWidget();
         } else if (widgetName === 'actions') {
             populateActionsWidget();
-        } else if (widgetName === 'timeline') {
-            const stream = document.getElementById('detail-timeline-stream');
-            if (stream) stream.scrollTop = stream.scrollHeight;
         }
     }
 
@@ -1402,12 +1272,6 @@
                 currentClientData = await clientRes.json();
                 populateActionsWidget();
             }
-
-            const timelineRes = await fetch(`${apiBase}/clients/${currentClientId}/timeline`, { headers: { 'requesttoken': OC.requestToken } });
-            if (timelineRes.ok) {
-                const timelineData = await timelineRes.json();
-                renderTimeline(timelineData.messages || []);
-            }
         } catch (err) {
             console.error('Error logging action:', err);
             alert('Ошибка при фиксации действия');
@@ -1576,13 +1440,7 @@
                 })
             });
 
-            const timelineRes = await fetch(`${apiBase}/clients/${currentClientId}/timeline`, {
-                headers: { 'requesttoken': OC.requestToken }
-            });
-            if (timelineRes.ok) {
-                const timelineData = await timelineRes.json();
-                renderTimeline(timelineData.messages || []);
-            }
+
         } catch (e) {
             console.warn('e-Sign message log error:', e);
         }

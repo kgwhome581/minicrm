@@ -51,14 +51,11 @@ declare(strict_types=1);
 
                     <!-- Header Quick Action Buttons (Widget Switchers) -->
                     <div class="client-header-actions">
-                        <button type="button" id="tab-btn-timeline" class="header-tab-btn active" title="Мультиканальная переписка (Email, WhatsApp, Telegram)">
-                            💬 Timeline
+                        <button type="button" id="tab-btn-contact" class="header-tab-btn active" title="Карточка контакта и синхронизация CardDAV">
+                            👤 Contact
                         </button>
                         <button type="button" id="tab-btn-files" class="header-tab-btn" title="Файлы и документы клиента в Nextcloud">
                             📁 Files <span id="header-files-badge" class="badge-count"></span>
-                        </button>
-                        <button type="button" id="tab-btn-contact" class="header-tab-btn" title="Карточка контакта и синхронизация CardDAV">
-                            👤 Contact
                         </button>
                         <button type="button" id="tab-btn-actions" class="header-tab-btn" title="Задачи Deck и активности">
                             🎯 Deck <span id="header-deck-id"></span>
@@ -222,57 +219,8 @@ declare(strict_types=1);
                     </div>
                 </div>
 
-                <!-- Right Column: Interactive Widgets Panel (Timeline, Files, Contact, Deck & Actions) -->
+                <!-- Right Column: Interactive Widgets Panel (Contact, Files, Deck & Actions) -->
                 <div class="minicrm-main-panel">
-                    <!-- In-App Widget View Switcher Bar -->
-                    <div class="widget-tab-bar" id="widget-tab-bar">
-                        <button type="button" class="widget-tab-btn active" data-widget="timeline">
-                            💬 Переписка & Timeline
-                        </button>
-                        <button type="button" class="widget-tab-btn" data-widget="files">
-                            📁 Документы & Files <span id="widget-tab-files-count" class="tab-badge">0</span>
-                        </button>
-                        <button type="button" class="widget-tab-btn" data-widget="contact">
-                            👤 Карточка Контакта
-                        </button>
-                        <button type="button" class="widget-tab-btn" data-widget="actions">
-                            🎯 Задачи Deck & Активности
-                        </button>
-                    </div>
-
-                    <!-- WIDGET 1: Multichannel Timeline & Messaging -->
-                    <div id="widget-panel-timeline" class="minicrm-widget-view active">
-                        <div class="minicrm-timeline-container">
-                            <div class="timeline-header-bar">
-                                <div class="timeline-title-wrap">
-                                    <h3>Мультиканальная история коммуникаций</h3>
-                                    <span class="timeline-sync-badge">⚡ n8n Sync</span>
-                                </div>
-                                <span class="timeline-meta-hint">Telegram, WhatsApp, Email, Deck</span>
-                            </div>
-                            <div id="detail-timeline-stream" class="timeline-stream">
-                                <!-- Dynamic message bubbles -->
-                            </div>
-                        </div>
-
-                        <!-- Outbound Reply Box -->
-                        <div class="minicrm-reply-box">
-                            <div class="reply-controls">
-                                <label for="reply-channel-select">Канал отправки:</label>
-                                <select id="reply-channel-select">
-                                    <option value="email">✉️ Email</option>
-                                    <option value="whatsapp">💬 WhatsApp</option>
-                                    <option value="telegram">✈️ Telegram</option>
-                                    <option value="sms">📱 SMS</option>
-                                </select>
-                                <input type="text" id="reply-subject-input" placeholder="Тема письма..." />
-                            </div>
-                            <div class="reply-textarea-container">
-                                <textarea id="reply-message-text" rows="2" placeholder="Введите сообщение клиенту (запрос форм T4/T5, ссылка на FileDrop, статус CRA)..."></textarea>
-                                <button id="reply-send-button" class="primary">Отправить через n8n</button>
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- WIDGET 2: In-App Files & Documents Explorer -->
                     <div id="widget-panel-files" class="minicrm-widget-view" style="display: none;">
@@ -350,8 +298,8 @@ declare(strict_types=1);
                         </div>
                     </div>
 
-                    <!-- WIDGET 3: In-App Contact Card & vCard Editor -->
-                    <div id="widget-panel-contact" class="minicrm-widget-view" style="display: none;">
+                    <!-- WIDGET: In-App Contact Card & vCard Editor -->
+                    <div id="widget-panel-contact" class="minicrm-widget-view active">
                         <div class="widget-contact-container">
                             <!-- Contact Widget Header -->
                             <div class="contact-widget-header">

@@ -296,6 +296,16 @@ class ApiController extends BaseApiController {
             $postalCode = $this->request->getParam('postal_code');
             $country = $this->request->getParam('country', 'Canada');
 
+            $rawAddressInput = $this->request->getParam('address');
+            if (!empty($rawAddressInput)) {
+                $addrParts = array_map('trim', explode(',', (string)$rawAddressInput));
+                if (empty($street) && count($addrParts) >= 1) $street = $addrParts[0];
+                if (empty($city) && count($addrParts) >= 2) $city = $addrParts[1];
+                if (empty($province) && count($addrParts) >= 3) $province = $addrParts[2];
+                if (empty($postalCode) && count($addrParts) >= 4) $postalCode = $addrParts[3];
+                if (empty($country) && count($addrParts) >= 5) $country = $addrParts[4];
+            }
+
             $extraAddress = [];
             if (!empty($street)) $extraAddress['street'] = trim((string)$street);
             if (!empty($city)) $extraAddress['city'] = trim((string)$city);
@@ -312,8 +322,10 @@ class ApiController extends BaseApiController {
             if (!empty($website)) $extraAddress['website'] = trim((string)$website);
             if (!empty($emailType)) $extraAddress['email_type'] = trim((string)$emailType);
 
-            if (!empty($extraAddress)) {
-                $addrString = implode(', ', array_filter([$street, $city, $province, $postalCode, $country]));
+            if (!empty($extraAddress) || !empty($rawAddressInput)) {
+                $addrString = !empty($rawAddressInput)
+                    ? trim((string)$rawAddressInput)
+                    : implode(', ', array_filter([$street, $city, $province, $postalCode, $country]));
                 $currNotes = (string)($client->getNotes() ?? '');
                 if (preg_match('/(?:Адрес|Address):\s*([^\r\n]+)/iu', $currNotes)) {
                     $currNotes = preg_replace('/(?:Адрес|Address):\s*([^\r\n]+)/iu', "Адрес: {$addrString}", $currNotes);
@@ -423,19 +435,44 @@ class ApiController extends BaseApiController {
                     $client->getFullName(),
                     $client->getNotes()
                 );
-                if (empty($contactCard['exists']) || empty($contactCard['app_url'])) {
-                    $responsibleUser = (!empty($activities) && !empty($activities[0]->getResponsibleUser()))
-                        ? $activities[0]->getResponsibleUser()
-                        : 'admin';
-                    $folderUrl = $client->getFolderPath() ? '/apps/files/?dir=' . urlencode($client->getFolderPath()) : null;
+                $responsibleUser = (!empty($activities) && !empty($activities[0]->getResponsibleUser()))
+                    ? $activities[0]->getResponsibleUser()
+                    : 'admin';
+                $folderUrl = $client->getFolderPath() ? '/apps/files/?dir=' . urlencode($client->getFolderPath()) : null;
+
+                if (empty($contactCard['exists']) || empty($contactCard['app_url']) || (empty($contactCard['email']) && !empty($client->getEmail())) || (empty($contactCard['phone']) && !empty($client->getPhone()))) {
                     $synced = $this->contactBridge->syncContact($responsibleUser, $client, $folderUrl);
                     if ($synced && !empty($synced['app_url'])) {
-                        $contactCard['exists'] = true;
-                        $contactCard['app_url'] = $synced['app_url'];
+                        $contactCard = $this->contactBridge->getContactInfo(
+                            $client->getUuid(),
+                            $client->getEmail(),
+                            $client->getPhone(),
+                            $client->getFullName(),
+                            $client->getNotes()
+                        );
                     }
                 }
             } else {
                 $contactCard = ['exists' => false, 'app_url' => null, 'address' => null];
+            }
+
+            // Ensure contact_card never lacks core properties
+            if (empty($contactCard['address']) && !empty($client->getNotes())) {
+                if (preg_match('/(?:Адрес|Address):\s*([^\r\n]+)/iu', $client->getNotes(), $m)) {
+                    $contactCard['address'] = trim($m[1]);
+                }
+            }
+            if (empty($contactCard['email']) && !empty($client->getEmail())) {
+                $contactCard['email'] = $client->getEmail();
+            }
+            if (empty($contactCard['phone']) && !empty($client->getPhone())) {
+                $contactCard['phone'] = $client->getPhone();
+            }
+            if (empty($contactCard['notes']) && !empty($client->getNotes())) {
+                $contactCard['notes'] = $client->getNotes();
+            }
+            if (empty($contactCard['website']) && !empty($client->getFolderPath())) {
+                $contactCard['website'] = '/apps/files/?dir=' . urlencode($client->getFolderPath());
             }
 
             return new DataResponse([

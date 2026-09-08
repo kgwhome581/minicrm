@@ -371,6 +371,24 @@ declare(strict_types=1);
                                         </div>
                                     </div>
 
+                                    <!-- Address Edit Group -->
+                                    <div class="nc-edit-group">
+                                        <div class="nc-edit-group-header">
+                                            <div class="nc-edit-group-title">
+                                                <span class="nc-field-icon">🏠</span>
+                                                <strong>Address</strong>
+                                            </div>
+                                            <button type="button" id="nc-btn-add-address" class="nc-btn-row-add" title="Добавить адрес">+</button>
+                                        </div>
+                                        <div class="nc-edit-row">
+                                            <div class="nc-edit-input-wrapper nc-flex-1">
+                                                <label class="nc-floating-label">Home Address</label>
+                                                <input type="text" id="nc-input-address" class="nc-styled-input" placeholder="Street, City, Province, Postal Code" />
+                                            </div>
+                                            <button type="button" id="nc-btn-clear-address" class="nc-btn-row-delete" title="Очистить">🗑️</button>
+                                        </div>
+                                    </div>
+
                                     <!-- Notes Edit Group -->
                                     <div class="nc-edit-group">
                                         <div class="nc-edit-group-header">
@@ -636,5 +654,4 @@ declare(strict_types=1);
         </div>
     </div>
 </div>
-
-
+<script src="/apps/minicrm/js/minicrm-main.js?v=<?= time() ?>"></script>

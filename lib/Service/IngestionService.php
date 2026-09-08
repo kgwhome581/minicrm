@@ -201,17 +201,17 @@ class IngestionService {
                 $client->setUpdatedAt(new DateTime('now'));
                 $client = $this->clientMapper->insert($client);
             } else {
-                // If existing client had dummy/default name ("Новый клиент") and now we have real name
-                if ($client->getFullName() === 'Новый клиент' && $clientName !== 'Новый клиент') {
+                // If incoming lead has real name, update client name if currently default or empty
+                if (!empty($clientName) && ($client->getFullName() === 'Новый клиент' || empty($client->getFullName()))) {
                     $client->setFullName($clientName);
                 }
-                if (empty($client->getEmail()) && !empty($email)) {
+                if (!empty($email)) {
                     $client->setEmail($email);
                 }
-                if (empty($client->getPhone()) && !empty($phoneNormalized)) {
+                if (!empty($phoneNormalized)) {
                     $client->setPhone($phoneNormalized);
                 }
-                if (empty($client->getPhoneRaw()) && !empty($rawPhone)) {
+                if (!empty($rawPhone)) {
                     $client->setPhoneRaw((string)$rawPhone);
                 }
                 // Append notes if new address/notes present

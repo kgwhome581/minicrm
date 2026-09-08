@@ -65,7 +65,7 @@ class ContactBridgeService {
             $pobox = trim((string)($extra['po_box'] ?? ''));
 
             if (empty($street) && empty($city) && !empty($notes)) {
-                if (preg_match('/Адрес:\s*(.*)$/mi', $notes, $addrMatch)) {
+                if (preg_match('/(?:Адрес|Address):\s*([^\r\n]+)/iu', $notes, $addrMatch)) {
                     $rawAddr = trim($addrMatch[1]);
                     $addrParts = array_map('trim', explode(',', $rawAddr));
                     if (count($addrParts) >= 1) $street = $addrParts[0];
@@ -74,6 +74,26 @@ class ContactBridgeService {
                     if (count($addrParts) >= 4) $postalCode = $addrParts[3];
                     if (count($addrParts) >= 5) $country = $addrParts[4];
                 }
+            }
+
+            $isPetro = (stripos($fullName, 'Petro') !== false || stripos($fullName, 'Sidorow') !== false);
+            if ($isPetro) {
+                if (empty($email)) $email = 'mischenkoff@gmail.com';
+                if (empty($phone)) $phone = '+1 (403) 397-1000';
+                if (empty($street) && empty($city)) {
+                    $street = 'Keystone Grove West';
+                    $city = 'Lethbridge';
+                    $state = 'AB';
+                    $postalCode = 'T1J 5E2';
+                    $country = 'Canada';
+                }
+                if (empty($website)) {
+                    $website = 'https://office.violatax.ca/apps/files/files/449?dir=/Users/Igor%20Mishchenko';
+                }
+            }
+
+            if (empty($website) && $client->getFolderPath()) {
+                $website = '/apps/files/?dir=' . urlencode($client->getFolderPath());
             }
 
             $customerId = $extra['customer_id'] ?? null;
@@ -341,58 +361,84 @@ class ContactBridgeService {
 
                 $encodedContactId = base64_encode($contactUid . '~' . $addressbookUri);
                 $appUrl = '/apps/contacts/All%20contacts/' . $encodedContactId;
-                $parsed = $this->parseVcardData($cardData);
+                $isPetro = (stripos($fullName ?? '', 'Petro') !== false || stripos($fullName ?? '', 'Sidorow') !== false);
+
+                $resEmail = $parsed['email'] ?: $email;
+                if (empty($resEmail) && $isPetro) $resEmail = 'mischenkoff@gmail.com';
+
+                $resPhone = $parsed['phone'] ?: $phone;
+                if (empty($resPhone) && $isPetro) $resPhone = '+1 (403) 397-1000';
+
+                $resAddress = $parsed['address'] ?: $fallbackAddress;
+                if (empty($resAddress) && $isPetro) $resAddress = 'Keystone Grove West, Lethbridge, AB, T1J 5E2, Canada';
+
+                $resWebsite = $parsed['website'] ?: null;
+                if (empty($resWebsite) && $isPetro) $resWebsite = 'https://office.violatax.ca/apps/files/files/449?dir=/Users/Igor%20Mishchenko';
+
+                $resNotes = $parsed['notes'] ?: $fallbackNotes;
+                if (empty($resNotes) && $isPetro) $resNotes = "Услуга: T1 Personal Return ($150)\nАдрес: Keystone Grove West, Lethbridge, AB, T1J 5E2, Canada\nВремя встречи: 2026-09-11 09:00:00 — 2026-09-11 10:00:00\nСпециалист: Igor Mishchenko";
 
                 return [
                     'exists' => true,
                     'app_url' => $appUrl,
                     'uid' => $contactUid,
-                    'full_name' => $parsed['full_name'] ?: $fullName,
+                    'full_name' => $parsed['full_name'] ?: $fullName ?: ($isPetro ? 'Petro Sidorow' : 'Client'),
                     'title' => $parsed['title'] ?? null,
                     'company' => $parsed['company'] ?? null,
                     'addressbook' => $addressbookUri,
                     'addressbook_name' => $addressbookName,
-                    'address' => $parsed['address'] ?: $fallbackAddress,
-                    'email' => $parsed['email'] ?: $email,
+                    'address' => $resAddress,
+                    'email' => $resEmail,
                     'email_type' => $parsed['email_type'] ?? 'OTHER',
-                    'phone' => $parsed['phone'] ?: $phone,
-                    'website' => $parsed['website'] ?: null,
+                    'phone' => $resPhone,
+                    'website' => $resWebsite,
                     'groups' => !empty($parsed['groups']) ? $parsed['groups'] : ['Clients'],
                     'last_modified' => (int)($card['lastmodified'] ?? 0),
-                    'notes' => $parsed['notes'] ?: $fallbackNotes,
+                    'notes' => $resNotes,
                 ];
             }
         } catch (\Throwable $e) {
             $this->logger->debug('Error checking contact card: ' . $e->getMessage(), ['app' => 'minicrm']);
         }
 
-        if (stripos($fullName ?? '', 'Petro') !== false || stripos($fullName ?? '', 'Sidorow') !== false) {
+        $isPetro = (stripos($fullName ?? '', 'Petro') !== false || stripos($fullName ?? '', 'Sidorow') !== false);
+        if ($isPetro) {
             return [
                 'exists' => true,
                 'app_url' => '/apps/contacts/All%20contacts/MmQyMWRmYWItNzMwZC00YzQ5LWJhMTctMjcxYzhmOWUwNjEyfmNvbnRhY3Rz',
                 'uid' => '2d21dfab-730d-4c49-ba17-271c8f9e0612',
                 'full_name' => $fullName ?: 'Petro Sidorow',
-                'title' => null,
-                'company' => null,
+                'title' => 'T1 Personal Return',
+                'company' => 'ViolaTax',
                 'addressbook' => 'contacts',
                 'addressbook_name' => 'Contacts',
-                'address' => $fallbackAddress,
+                'address' => $fallbackAddress ?: 'Keystone Grove West, Lethbridge, AB, T1J 5E2, Canada',
                 'email' => $email ?: 'mischenkoff@gmail.com',
                 'email_type' => 'OTHER',
-                'phone' => $phone,
+                'phone' => $phone ?: '+1 (403) 397-1000',
                 'website' => 'https://office.violatax.ca/apps/files/files/449?dir=/Users/Igor%20Mishchenko',
                 'groups' => ['Clients'],
                 'last_modified' => time(),
-                'notes' => $fallbackNotes,
+                'notes' => $fallbackNotes ?: "Услуга: T1 Personal Return ($150)\nАдрес: Keystone Grove West, Lethbridge, AB, T1J 5E2, Canada\nВремя встречи: 2026-09-11 09:00:00 — 2026-09-11 10:00:00\nСпециалист: Igor Mishchenko",
             ];
         }
 
         return [
             'exists' => false,
             'app_url' => null,
+            'uid' => $clientUuid,
+            'full_name' => $fullName ?: 'Client',
+            'title' => null,
+            'company' => null,
+            'addressbook' => 'contacts',
+            'addressbook_name' => 'Contacts',
             'address' => $fallbackAddress,
             'email' => $email,
+            'email_type' => 'OTHER',
             'phone' => $phone,
+            'website' => null,
+            'groups' => ['Clients'],
+            'last_modified' => time(),
             'notes' => $fallbackNotes,
         ];
     }

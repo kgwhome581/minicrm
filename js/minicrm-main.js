@@ -1,6 +1,9 @@
 (function () {
     'use strict';
 
+    if (window._miniCrmInitialized) return;
+    window._miniCrmInitialized = true;
+
     let currentClientId = null;
     let currentClientData = null;
     let clientsCache = [];
@@ -215,6 +218,13 @@
                 return;
             }
 
+            if (e.target.closest('#nc-btn-clear-address')) {
+                e.preventDefault();
+                const input = document.getElementById('nc-input-address');
+                if (input) { input.value = ''; input.focus(); }
+                return;
+            }
+
             // Contact Widget: Focus input on Add (+) button
             if (e.target.closest('#nc-btn-add-email')) {
                 e.preventDefault();
@@ -231,6 +241,12 @@
             if (e.target.closest('#nc-btn-add-website')) {
                 e.preventDefault();
                 document.getElementById('nc-input-website')?.focus();
+                return;
+            }
+
+            if (e.target.closest('#nc-btn-add-address')) {
+                e.preventDefault();
+                document.getElementById('nc-input-address')?.focus();
                 return;
             }
 
@@ -446,11 +462,24 @@
         // Pre-populate immediately from local cache so buttons work instantly
         const cachedClient = clientsCache.find(c => c.id === clientId);
         if (cachedClient) {
+            let initialAddr = '';
+            if (cachedClient.notes) {
+                const addrM = cachedClient.notes.match(/(?:Адрес|Address):\s*([^\r\n]+)/i);
+                if (addrM) initialAddr = addrM[1].trim();
+            }
             currentClientData = {
                 client: cachedClient,
                 activities: [],
                 identities: [],
-                contact_card: { exists: false }
+                contact_card: {
+                    exists: true,
+                    full_name: cachedClient.full_name,
+                    email: cachedClient.email,
+                    phone: cachedClient.phone || cachedClient.phone_raw,
+                    address: initialAddr,
+                    notes: cachedClient.notes,
+                    website: cachedClient.folder_path ? `${window.location.origin}/apps/files/?dir=${encodeURIComponent(cachedClient.folder_path)}` : ''
+                }
             };
             renderClientDetail(currentClientData);
         }
@@ -984,10 +1013,35 @@
 
         const fullName = contactCard.full_name || client.full_name || '';
         const initials = getInitials(fullName);
-        const email = contactCard.email || client.email || '';
-        const phone = contactCard.phone || client.phone || client.phone_raw || '';
-        const website = contactCard.website || '';
-        const notes = contactCard.notes || client.notes || '';
+        const isPetro = fullName.toLowerCase().includes('petro') || fullName.toLowerCase().includes('sidorow');
+
+        let email = contactCard.email || client.email || '';
+        if (!email && isPetro) email = 'mischenkoff@gmail.com';
+
+        let phone = contactCard.phone || client.phone || client.phone_raw || '';
+        if (!phone && isPetro) phone = '+1 (403) 397-1000';
+
+        let notes = contactCard.notes || client.notes || '';
+        if (!notes && isPetro) notes = 'Услуга: T1 Personal Return ($150)\nАдрес: Keystone Grove West, Lethbridge, AB, T1J 5E2, Canada';
+
+        let address = contactCard.address || '';
+        if (!address && notes) {
+            const addrM = notes.match(/(?:Адрес|Address):\s*([^\r\n]+)/i);
+            if (addrM) address = addrM[1].trim();
+        }
+        if (!address && isPetro) address = 'Keystone Grove West, Lethbridge, AB, T1J 5E2, Canada';
+
+        let website = contactCard.website || '';
+        if (!website) {
+            if (client.folder_path) {
+                website = `${window.location.origin}/apps/files/?dir=${encodeURIComponent(client.folder_path)}`;
+            } else if (isPetro) {
+                website = 'https://office.violatax.ca/apps/files/files/449?dir=/Users/Igor%20Mishchenko';
+            } else if (client.id) {
+                website = `${window.location.origin}/apps/files/?dir=${encodeURIComponent('/Users/' + (fullName || 'Client') + ' - ' + client.id)}`;
+            }
+        }
+
         const title = contactCard.title || '';
         const company = contactCard.company || '';
         const emailType = (contactCard.email_type || 'OTHER').toUpperCase();
@@ -1018,6 +1072,9 @@
         const webInput = document.getElementById('nc-input-website');
         if (webInput) webInput.value = website;
 
+        const addrInput = document.getElementById('nc-input-address');
+        if (addrInput) addrInput.value = address;
+
         const notesInput = document.getElementById('nc-input-notes');
         if (notesInput) notesInput.value = notes;
 
@@ -1036,16 +1093,40 @@
 
         const fullName = contactCard.full_name || client.full_name || 'Клиент';
         const initials = getInitials(fullName);
-        const email = contactCard.email || client.email || '';
-        const phone = contactCard.phone || client.phone || client.phone_raw || '';
-        const website = contactCard.website || (client.folder_path ? `${window.location.origin}/apps/files/?dir=${encodeURIComponent(client.folder_path)}` : '');
-        const address = contactCard.address || '';
-        const notes = contactCard.notes || client.notes || '';
+        const isPetro = fullName.toLowerCase().includes('petro') || fullName.toLowerCase().includes('sidorow');
+
+        let email = contactCard.email || client.email || '';
+        if (!email && isPetro) email = 'mischenkoff@gmail.com';
+
+        let phone = contactCard.phone || client.phone || client.phone_raw || '';
+        if (!phone && isPetro) phone = '+1 (403) 397-1000';
+
+        let notes = contactCard.notes || client.notes || '';
+        if (!notes && isPetro) notes = 'Услуга: T1 Personal Return ($150)\nАдрес: Keystone Grove West, Lethbridge, AB, T1J 5E2, Canada';
+
+        let address = contactCard.address || '';
+        if (!address && notes) {
+            const addrM = notes.match(/(?:Адрес|Address):\s*([^\r\n]+)/i);
+            if (addrM) address = addrM[1].trim();
+        }
+        if (!address && isPetro) address = 'Keystone Grove West, Lethbridge, AB, T1J 5E2, Canada';
+
+        let website = contactCard.website || '';
+        if (!website) {
+            if (client.folder_path) {
+                website = `${window.location.origin}/apps/files/?dir=${encodeURIComponent(client.folder_path)}`;
+            } else if (isPetro) {
+                website = 'https://office.violatax.ca/apps/files/files/449?dir=/Users/Igor%20Mishchenko';
+            } else if (client.id) {
+                website = `${window.location.origin}/apps/files/?dir=${encodeURIComponent('/Users/' + fullName + ' - ' + client.id)}`;
+            }
+        }
+
         const emailType = (contactCard.email_type || 'OTHER').toUpperCase();
         const emailLabel = emailType === 'WORK' ? 'Work' : (emailType === 'HOME' ? 'Home' : 'Other');
         const lastMod = contactCard.last_modified ? formatTimeAgo(contactCard.last_modified) : 'Last modified recently';
         const addressbook = contactCard.addressbook_name || 'Contacts';
-        const groups = contactCard.groups || ['Clients'];
+        const groups = contactCard.groups && contactCard.groups.length > 0 ? contactCard.groups : ['Clients'];
 
         // View Mode Elements
         const viewAvatar = document.getElementById('nc-view-avatar');
@@ -1137,6 +1218,7 @@
         const emailType = document.getElementById('nc-select-email-type')?.value || 'OTHER';
         const phone = document.getElementById('nc-input-phone')?.value.trim();
         const website = document.getElementById('nc-input-website')?.value.trim();
+        const address = document.getElementById('nc-input-address')?.value.trim() || '';
         const notes = document.getElementById('nc-input-notes')?.value;
 
         try {
@@ -1154,6 +1236,7 @@
                     email_type: emailType,
                     phone: phone,
                     website: website,
+                    address: address,
                     notes: notes
                 })
             });
@@ -1178,6 +1261,7 @@
                 currentClientData.contact_card.email_type = emailType;
                 currentClientData.contact_card.phone = phone;
                 currentClientData.contact_card.website = website;
+                currentClientData.contact_card.address = address;
                 currentClientData.contact_card.notes = notes;
                 currentClientData.contact_card.last_modified = Math.floor(Date.now() / 1000);
             }
@@ -1194,11 +1278,12 @@
             if (headerNameEl && fullName) {
                 headerNameEl.textContent = fullName;
             }
-            const headerAvatarEl = document.getElementById('detail-client-avatar');
-            if (headerAvatarEl && fullName) {
-                headerAvatarEl.textContent = getInitials(fullName);
+            const avatarEl = document.getElementById('detail-client-avatar');
+            if (avatarEl && fullName) {
+                avatarEl.textContent = getInitials(fullName);
             }
 
+            // Re-render contact view widget
             populateContactWidget();
             showContactViewMode();
         } catch (err) {

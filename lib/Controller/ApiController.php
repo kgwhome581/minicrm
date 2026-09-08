@@ -68,12 +68,9 @@ class ApiController extends BaseApiController {
         $expectedToken = $this->config->getAppValue('minicrm', 'api_token', '');
         if (!empty($expectedToken)) {
             // Check Authorization header
-            $authHeader = $this->request->getHeader('Authorization');
+            $authHeader = (string)$this->request->getHeader('Authorization');
             if (empty($authHeader)) {
-                $authHeader = $this->request->getServerVariable('HTTP_AUTHORIZATION');
-            }
-            if (empty($authHeader)) {
-                $authHeader = $this->request->getServerVariable('REDIRECT_HTTP_AUTHORIZATION');
+                $authHeader = (string)($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
             }
 
             if (!empty($authHeader) && str_starts_with($authHeader, 'Bearer ')) {
@@ -83,9 +80,15 @@ class ApiController extends BaseApiController {
                 }
             }
 
-            // Also check query param ?token=... for easy webhook testing
-            $tokenParam = $this->request->getParam('token');
-            if (!empty($tokenParam) && hash_equals($expectedToken, (string)$tokenParam)) {
+            // Check X-API-TOKEN or X-Auth-Token headers
+            $xApiToken = (string)($this->request->getHeader('X-API-TOKEN') ?? $this->request->getHeader('X-Auth-Token') ?? '');
+            if (!empty($xApiToken) && hash_equals($expectedToken, $xApiToken)) {
+                return true;
+            }
+
+            // Also check query param ?token=... or ?api_token=... for easy webhook testing
+            $tokenParam = (string)($this->request->getParam('token') ?? $this->request->getParam('api_token') ?? '');
+            if (!empty($tokenParam) && hash_equals($expectedToken, $tokenParam)) {
                 return true;
             }
 

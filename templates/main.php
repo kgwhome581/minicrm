@@ -160,7 +160,30 @@ declare(strict_types=1);
 
                             <!-- 1. VIEW MODE (Matches Screenshot 2) -->
                             <div id="nc-contact-view" class="nc-contact-view-container">
-
+                                <!-- Nextcloud Contacts Header Layout -->
+                                <div class="nc-contact-header-layout">
+                                    <div class="nc-contact-avatar-badge" id="nc-view-avatar">PS</div>
+                                    <div class="nc-contact-title-group">
+                                        <div class="nc-contact-name-row">
+                                            <h1 id="nc-view-fullname" class="nc-contact-fullname">Клиент</h1>
+                                            <div class="nc-contact-header-actions">
+                                                <button type="button" id="nc-btn-trigger-edit" class="nc-btn-action" title="Редактировать контакт">
+                                                    ✏️ Edit
+                                                </button>
+                                                <a id="nc-btn-open-contacts-app" href="#" target="_blank" class="nc-btn-action nc-btn-contacts-link" title="Открыть карточку в модуле Nextcloud Contacts">
+                                                    ↗️ Open in Contacts
+                                                </a>
+                                                <button type="button" id="nc-btn-sync-carddav" class="nc-btn-action" title="Синхронизировать с CardDAV">
+                                                    🔄 Sync CardDAV
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="nc-contact-quick-row">
+                                            <span id="nc-view-title-company" class="nc-contact-subtext">—</span>
+                                            <a id="nc-view-quick-mail" href="#" class="nc-quick-btn-mail" title="Отправить email">✉️</a>
+                                        </div>
+                                    </div>
+                                </div>
 
                                 <div class="nc-contact-body-grid">
                                     <!-- Left Column: Contact Fields -->
@@ -436,10 +459,13 @@ declare(strict_types=1);
                                         </div>
                                     </div>
 
+                                    <!-- Dynamic Custom Fields Container -->
+                                    <div id="nc-custom-fields-container" class="nc-edit-group"></div>
+
                                     <!-- Add More Info Button -->
                                     <div class="nc-add-more-wrap">
                                         <button type="button" id="nc-btn-add-more-info" class="button button-small nc-btn-add-info">
-                                            + Add more info
+                                            + Add dynamic field
                                         </button>
                                     </div>
 

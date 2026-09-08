@@ -250,6 +250,29 @@
                 return;
             }
 
+            // Contact Widget: CardDAV Sync Button
+            if (e.target.closest('#nc-btn-sync-carddav')) {
+                e.preventDefault();
+                handleSyncContact(e.target.closest('#nc-btn-sync-carddav'));
+                return;
+            }
+
+            // Contact Widget: Add Dynamic Custom Field Row
+            if (e.target.closest('#nc-btn-add-more-info')) {
+                e.preventDefault();
+                addCustomFieldRow();
+                return;
+            }
+
+            // Contact Widget: Delete Dynamic Custom Field Row
+            const delCustomBtn = e.target.closest('.nc-btn-del-custom-field');
+            if (delCustomBtn) {
+                e.preventDefault();
+                const row = delCustomBtn.closest('.nc-custom-field-row');
+                if (row) row.remove();
+                return;
+            }
+
             // Deck Stage interactive buttons
             const deckStageBtn = e.target.closest('.deck-stage-btn');
             if (deckStageBtn && deckStageBtn.dataset.status) {
@@ -994,6 +1017,27 @@
         return `Last modified ${days} day${days > 1 ? 's' : ''} ago`;
     }
 
+    function addCustomFieldRow(key = '', val = '') {
+        const container = document.getElementById('nc-custom-fields-container');
+        if (!container) return;
+
+        const row = document.createElement('div');
+        row.className = 'nc-edit-row nc-custom-field-row';
+        row.style.marginTop = '8px';
+        row.innerHTML = `
+            <div class="nc-edit-input-wrapper" style="width: 140px;">
+                <label class="nc-floating-label">Field Name</label>
+                <input type="text" class="nc-styled-input nc-custom-key" placeholder="e.g. SIN" value="${escapeHtml(key)}" />
+            </div>
+            <div class="nc-edit-input-wrapper nc-flex-1">
+                <label class="nc-floating-label">Value</label>
+                <input type="text" class="nc-styled-input nc-custom-val" placeholder="Value" value="${escapeHtml(val)}" />
+            </div>
+            <button type="button" class="nc-btn-row-delete nc-btn-del-custom-field" title="Remove field">🗑️</button>
+        `;
+        container.appendChild(row);
+    }
+
     function showContactViewMode() {
         const viewEl = document.getElementById('nc-contact-view');
         const editEl = document.getElementById('nc-contact-edit');
@@ -1134,6 +1178,28 @@
 
         const viewFullName = document.getElementById('nc-view-fullname');
         if (viewFullName) viewFullName.textContent = fullName;
+
+        const viewSubtext = document.getElementById('nc-view-title-company');
+        if (viewSubtext) {
+            const titleVal = contactCard.title || 'T1 Personal Return';
+            const compVal = contactCard.company || 'ViolaTax';
+            viewSubtext.textContent = `${titleVal} • ${compVal}`;
+        }
+
+        // Nextcloud Contacts Deep Link Button
+        const openContactsBtn = document.getElementById('nc-btn-open-contacts-app');
+        if (openContactsBtn) {
+            if (contactCard && contactCard.app_url) {
+                openContactsBtn.href = OC.generateUrl(contactCard.app_url);
+                openContactsBtn.style.display = 'inline-flex';
+            } else if (client && client.uuid) {
+                const fallbackUrl = `/apps/contacts/All%20contacts/${btoa(client.uuid + '~contacts')}`;
+                openContactsBtn.href = OC.generateUrl(fallbackUrl);
+                openContactsBtn.style.display = 'inline-flex';
+            } else {
+                openContactsBtn.style.display = 'none';
+            }
+        }
 
         const viewQuickMail = document.getElementById('nc-view-quick-mail');
         if (viewQuickMail) {
@@ -1294,6 +1360,36 @@
                 saveBtn.disabled = false;
                 saveBtn.textContent = origText;
             }
+        }
+    }
+
+    async function handleSyncContact(btn) {
+        if (!currentClientId) return;
+        const origText = btn ? btn.textContent : '🔄 Sync CardDAV';
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = '⏳ Syncing...';
+        }
+
+        try {
+            const res = await fetch(`${apiBase}/clients/${currentClientId}`, {
+                method: 'GET',
+                headers: { 'requesttoken': OC.requestToken }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                currentClientData = data;
+                populateContactWidget();
+                if (btn) btn.textContent = '✓ Synced!';
+                setTimeout(() => { if (btn) btn.textContent = origText; }, 2000);
+            } else {
+                alert('Не удалось синхронизировать контакт с CardDAV');
+            }
+        } catch (err) {
+            console.error('Sync CardDAV error:', err);
+            alert('Ошибка сети при синхронизации с CardDAV');
+        } finally {
+            if (btn) btn.disabled = false;
         }
     }
 

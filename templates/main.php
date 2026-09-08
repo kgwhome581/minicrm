@@ -37,8 +37,6 @@ style('minicrm', 'minicrm-style');
                             <h1 id="detail-client-name">Клиент</h1>
                             <button type="button" id="btn-edit-client-name" class="btn-icon" title="Редактировать имя">✏️</button>
                             <span id="detail-client-id-badge" class="badge">ID: #0</span>
-                            <span id="detail-service-badge" class="service-pill">🇨🇦 T1 Personal Return</span>
-                            <span id="detail-activity-status-badge" class="status-pill">Booked</span>
                         </div>
                         <div class="client-meta-line" id="detail-client-meta">
                             <span id="detail-ea-id">EasyAppointments #—</span>

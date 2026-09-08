@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+script('minicrm', 'minicrm-main');
+style('minicrm', 'minicrm-style');
+
 ?>
-<link rel="stylesheet" href="/apps/minicrm/css/minicrm-style.css?v=<?= time() ?>">
 <div id="minicrm-app" class="minicrm-container">
     <!-- Left Navigation: Search & Client List -->
     <div id="app-navigation" class="minicrm-navigation">
@@ -683,4 +685,3 @@ declare(strict_types=1);
         </div>
     </div>
 </div>
-<script src="/apps/minicrm/js/minicrm-main.js?v=<?= time() ?>"></script>

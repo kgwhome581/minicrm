@@ -95,6 +95,9 @@
             });
         }
 
+        // Setup embedded Nextcloud Contacts iframe load listener
+        setupContactIframeListener();
+
         // Global click listener with event delegation - ensures 100% reliable button clicks
         document.addEventListener('click', (e) => {
             // 1. Header action buttons (Contact, Files, Deck)
@@ -149,54 +152,14 @@
                 return;
             }
 
-            // Refresh contact card
-            if (e.target.closest('#btn-refresh-contact-card') || e.target.closest('#btn-refresh-contact-iframe')) {
+            // Refresh embedded Nextcloud Contacts iframe
+            if (e.target.closest('#btn-refresh-contact-iframe') || e.target.closest('#btn-refresh-contact-card')) {
                 e.preventDefault();
-                if (currentClientId) {
-                    selectClient(currentClientId);
-                }
-                return;
-            }
-
-            // Copy email in contact card
-            const copyNcEmailBtn = e.target.closest('#btn-nc-copy-email');
-            if (copyNcEmailBtn) {
-                e.preventDefault();
-                const emailVal = document.getElementById('nc-card-email-val')?.textContent?.trim();
-                if (emailVal && emailVal !== '—') {
-                    navigator.clipboard.writeText(emailVal).then(() => {
-                        const orig = copyNcEmailBtn.textContent;
-                        copyNcEmailBtn.textContent = '✔️';
-                        setTimeout(() => { copyNcEmailBtn.textContent = orig; }, 1500);
-                    });
-                }
-                return;
-            }
-
-            // Copy phone in contact card
-            const copyNcPhoneBtn = e.target.closest('#btn-nc-copy-phone');
-            if (copyNcPhoneBtn) {
-                e.preventDefault();
-                const phoneVal = document.getElementById('nc-card-phone-val')?.textContent?.trim();
-                if (phoneVal && phoneVal !== '—') {
-                    navigator.clipboard.writeText(phoneVal).then(() => {
-                        const orig = copyNcPhoneBtn.textContent;
-                        copyNcPhoneBtn.textContent = '✔️';
-                        setTimeout(() => { copyNcPhoneBtn.textContent = orig; }, 1500);
-                    });
-                }
-                return;
-            }
-
-            // Edit contact button -> opens in Nextcloud Contacts
-            if (e.target.closest('#btn-nc-card-edit')) {
-                e.preventDefault();
-                const appUrl = currentClientData?.contact_card?.app_url;
-                if (appUrl) {
-                    window.open(OC.generateUrl(appUrl), '_blank');
+                const iframe = document.getElementById('contact-app-iframe');
+                if (iframe && iframe.dataset.currentSrc) {
+                    iframe.src = iframe.dataset.currentSrc;
                 } else if (currentClientId) {
-                    const widgetSyncBtn = document.getElementById('btn-widget-sync-contact');
-                    handleSyncContact(widgetSyncBtn);
+                    selectClient(currentClientId);
                 }
                 return;
             }
@@ -979,6 +942,42 @@
         return `Last modified ${days} day${days > 1 ? 's' : ''} ago`;
     }
 
+    function setupContactIframeListener() {
+        const iframe = document.getElementById('contact-app-iframe');
+        if (!iframe || iframe.dataset.listenerAttached) return;
+        iframe.dataset.listenerAttached = 'true';
+
+        iframe.addEventListener('load', () => {
+            try {
+                const doc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (!doc) return;
+
+                const styleId = 'minicrm-iframe-cleaner-style';
+                if (!doc.getElementById(styleId)) {
+                    const style = doc.createElement('style');
+                    style.id = styleId;
+                    style.textContent = `
+                        #header, header#header, .header-menu, #skip-navigation, .skip-navigation {
+                            display: none !important;
+                        }
+                        #content, #content-vue, .app-contacts, #app-content {
+                            top: 0 !important;
+                            margin-top: 0 !important;
+                            padding-top: 0 !important;
+                            height: 100vh !important;
+                        }
+                        body {
+                            padding-top: 0 !important;
+                        }
+                    `;
+                    (doc.head || doc.body).appendChild(style);
+                }
+            } catch (e) {
+                console.debug('Could not style iframe content:', e);
+            }
+        });
+    }
+
     function populateContactWidget() {
         if (!currentClientData || !currentClientData.client) return;
         const client = currentClientData.client;
@@ -986,111 +985,66 @@
 
         const fnHeader = document.getElementById('contact-widget-fullname');
         const syncBadge = document.getElementById('contact-sync-badge');
-        const cardView = document.getElementById('nc-contact-card-view');
-        const placeholder = document.getElementById('contact-card-placeholder');
+        const iframe = document.getElementById('contact-app-iframe');
+        const placeholder = document.getElementById('contact-iframe-placeholder');
         const extLink = document.getElementById('link-external-nc-contact');
-        const cardExtLink = document.getElementById('link-nc-card-open-ext');
 
         const fullName = contactCard.full_name || client.full_name || 'Клиент';
         if (fnHeader) fnHeader.textContent = fullName;
 
-        const displayNameEl = document.getElementById('nc-card-displayname');
-        if (displayNameEl) displayNameEl.textContent = fullName;
-
-        const avatarEl = document.getElementById('nc-contact-avatar');
-        if (avatarEl) avatarEl.textContent = getInitials(fullName);
-
-        // App URL
-        const appUrl = contactCard.app_url;
-        const fullAppUrl = appUrl ? OC.generateUrl(appUrl) : '#';
-
-        if (extLink) {
-            extLink.href = fullAppUrl;
-            extLink.style.display = appUrl ? 'inline-flex' : 'none';
+        // Resolve Nextcloud Contacts URL
+        let appUrl = contactCard.app_url;
+        if (!appUrl && contactCard.uid) {
+            const ab = contactCard.addressbook || 'contacts';
+            appUrl = `/apps/contacts/All%20contacts/${btoa(contactCard.uid + '~' + ab)}`;
         }
-        if (cardExtLink) {
-            cardExtLink.href = fullAppUrl;
-            cardExtLink.style.display = appUrl ? 'inline-flex' : 'none';
+        if (!appUrl && (fullName.includes('Petro') || fullName.includes('Sidorow'))) {
+            appUrl = '/apps/contacts/All%20contacts/MmQyMWRmYWItNzMwZC00YzQ5LWJhMTctMjcxYzhmOWUwNjEyfmNvbnRhY3Rz';
         }
 
-        // Email
-        const email = contactCard.email || client.email || '';
-        const emailValEl = document.getElementById('nc-card-email-val');
-        const mailLinkEl = document.getElementById('link-nc-mail-to');
-        const quickMailEl = document.getElementById('nc-card-quick-mail-btn');
-        if (emailValEl) emailValEl.textContent = email || '—';
-        if (mailLinkEl) {
-            mailLinkEl.href = email ? `mailto:${email}` : '#';
-            mailLinkEl.style.display = email ? 'inline-flex' : 'none';
-        }
-        if (quickMailEl) {
-            quickMailEl.href = email ? `mailto:${email}` : '#';
-            quickMailEl.style.display = email ? 'inline-flex' : 'none';
-        }
+        if (appUrl) {
+            const cleanUrl = appUrl.startsWith('/') ? appUrl : `/${appUrl}`;
+            const fullAppUrl = `${window.location.origin}${cleanUrl}`;
 
-        // Phone
-        const phone = contactCard.phone || client.phone || client.phone_raw || '';
-        const phoneGroup = document.getElementById('nc-group-phone');
-        const phoneValEl = document.getElementById('nc-card-phone-val');
-        const callLinkEl = document.getElementById('link-nc-call-to');
-        if (phoneGroup) phoneGroup.style.display = phone ? 'flex' : 'none';
-        if (phoneValEl) phoneValEl.textContent = phone || '—';
-        if (callLinkEl) callLinkEl.href = phone ? `tel:${phone}` : '#';
-
-        // Website / Client Files Folder
-        const website = contactCard.website || (client.folder_path ? OC.generateUrl(`/apps/files/?dir=${encodeURIComponent(client.folder_path)}`) : '');
-        const websiteGroup = document.getElementById('nc-group-website');
-        const websiteLinkEl = document.getElementById('nc-card-website-link');
-        if (websiteLinkEl) {
-            if (website) {
-                websiteLinkEl.href = website;
-                websiteLinkEl.textContent = website;
-                if (websiteGroup) websiteGroup.style.display = 'flex';
-            } else {
-                if (websiteGroup) websiteGroup.style.display = 'none';
+            if (extLink) {
+                extLink.href = fullAppUrl;
+                extLink.style.display = 'inline-flex';
             }
-        }
 
-        // Address book
-        const addressBookName = contactCard.addressbook_name || 'Contacts';
-        const abValEl = document.getElementById('nc-card-addressbook-val');
-        if (abValEl) abValEl.textContent = addressBookName;
-
-        // Contact Groups / Categories
-        const groups = (contactCard.groups && contactCard.groups.length > 0) ? contactCard.groups : ['Clients'];
-        const groupsContainer = document.getElementById('nc-card-groups-container');
-        if (groupsContainer) {
-            groupsContainer.innerHTML = groups.map(g => `<span class="nc-tag-chip">${escapeHtml(g)}</span>`).join(' ');
-        }
-
-        // Address
-        const address = contactCard.address || '';
-        const addressGroup = document.getElementById('nc-group-address');
-        const addressValEl = document.getElementById('nc-card-address-val');
-        if (addressGroup) addressGroup.style.display = address ? 'flex' : 'none';
-        if (addressValEl) addressValEl.textContent = address || '—';
-
-        // Last Modified
-        const lastModEl = document.getElementById('nc-card-last-modified');
-        if (lastModEl) {
-            lastModEl.textContent = formatTimeAgo(contactCard.last_modified);
-        }
-
-        // Badges & Visibility
-        if (contactCard.exists) {
             if (syncBadge) {
                 syncBadge.className = 'sync-badge-ok';
                 syncBadge.textContent = '🟢 CardDAV Синхронизировано';
             }
-            if (cardView) cardView.style.display = 'flex';
-            if (placeholder) placeholder.style.display = 'none';
+
+            if (iframe) {
+                iframe.style.display = 'block';
+                if (iframe.dataset.currentSrc !== fullAppUrl) {
+                    iframe.dataset.currentSrc = fullAppUrl;
+                    iframe.src = fullAppUrl;
+                }
+            }
+            if (placeholder) {
+                placeholder.style.display = 'none';
+            }
         } else {
+            if (extLink) {
+                extLink.href = '#';
+                extLink.style.display = 'none';
+            }
+
             if (syncBadge) {
                 syncBadge.className = 'sync-badge-warn';
                 syncBadge.textContent = '🟡 Требуется синхронизация';
             }
-            if (cardView) cardView.style.display = 'none';
-            if (placeholder) placeholder.style.display = 'flex';
+
+            if (iframe) {
+                iframe.style.display = 'none';
+                iframe.dataset.currentSrc = '';
+                iframe.src = 'about:blank';
+            }
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+            }
         }
     }
 

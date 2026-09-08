@@ -164,7 +164,9 @@ style('minicrm', 'minicrm-style');
                                     <div class="nc-contact-title-group">
                                         <div class="nc-contact-name-row">
                                             <h1 id="nc-view-fullname" class="nc-contact-fullname">Клиент</h1>
-
+                                            <button type="button" id="nc-btn-trigger-edit" class="nc-btn-action" title="Редактировать контакт">
+                                                ✏️ Edit
+                                            </button>
                                         </div>
 
                                     </div>
@@ -265,9 +267,6 @@ style('minicrm', 'minicrm-style');
 
                                         <!-- Contact Action Buttons -->
                                         <div class="nc-contact-header-actions" style="margin-top: 16px; margin-bottom: 8px; display: flex; gap: 10px; flex-wrap: wrap;">
-                                            <button type="button" id="nc-btn-trigger-edit" class="nc-btn-action" title="Редактировать контакт">
-                                                ✏️ Edit
-                                            </button>
                                             <a id="nc-btn-open-contacts-app" href="#" target="_blank" class="nc-btn-action nc-btn-contacts-link" title="Открыть карточку в модуле Nextcloud Contacts">
                                                 ↗️ Open in Contacts
                                             </a>
